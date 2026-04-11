@@ -10,6 +10,7 @@ import backend.model.UserModel;
 import backend.repository.UserRepository;
 import backend.security.GoogleTokenVerifierService;
 import backend.security.JwtService;
+import backend.service.EmailNotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,17 +42,20 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final GoogleTokenVerifierService googleTokenVerifierService;
+    private final EmailNotificationService emailNotificationService;
 
     public UserController(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            GoogleTokenVerifierService googleTokenVerifierService
+            GoogleTokenVerifierService googleTokenVerifierService,
+            EmailNotificationService emailNotificationService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.googleTokenVerifierService = googleTokenVerifierService;
+        this.emailNotificationService = emailNotificationService;
     }
 
     @PostMapping
@@ -73,7 +77,10 @@ public class UserController {
         validateStudentEmailForRole(normalizedEmail, normalizedRole);
         newUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
         newUser.setApproved(!"TECHNICIAN".equals(normalizedRole));
-        return userRepository.save(newUser);
+
+        UserModel savedUser = userRepository.save(newUser);
+        emailNotificationService.sendRegistrationEmail(savedUser);
+        return savedUser;
     }
 
     @PostMapping("/login")
@@ -284,7 +291,9 @@ public class UserController {
         user.setPhone(null);
         user.setActive(true);
         user.setApproved(!"TECHNICIAN".equals(normalizedRole));
-        return userRepository.save(user);
+        UserModel savedUser = userRepository.save(user);
+        emailNotificationService.sendRegistrationEmail(savedUser);
+        return savedUser;
     }
 
     private LoginResponse buildLoginResponse(String message, UserModel user) {
@@ -312,7 +321,9 @@ public class UserController {
                     }
 
                     user.setApproved(true);
-                    return userRepository.save(user);
+                    UserModel savedUser = userRepository.save(user);
+                    emailNotificationService.sendTechnicianApprovedEmail(savedUser);
+                    return savedUser;
                 })
                 .orElseThrow(() -> new UserNotFoundException(id));
     }
