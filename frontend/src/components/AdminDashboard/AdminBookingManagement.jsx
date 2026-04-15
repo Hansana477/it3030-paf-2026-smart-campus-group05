@@ -1,36 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Calendar,
   Clock,
   Users,
-  MapPin,
   CheckCircle,
   XCircle,
   AlertCircle,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Eye,
-  Download,
-  Printer,
-  RefreshCw,
-  ChevronDown,
   Loader2,
   X,
-  Save,
   Phone,
   Mail,
   User,
   BookOpen,
-  Building,
-  Armchair,
   Zap,
-  Wifi,
   FileText,
-  TrendingUp,
-  BarChart3,
-  PieChart,
 } from 'lucide-react';
 
 // ==============================================
@@ -247,6 +234,98 @@ const STATUS_COLORS = {
   CANCELLED: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-800', icon: 'text-gray-600' },
 };
 
+const RESOURCE_LAYOUTS = {
+  '1': {
+    layoutLabel: 'Tiered lecture seating',
+    focalPoint: 'Stage + dual projection screens',
+    supportNote: 'Front-left accessible row and side aisle kept open for movement.',
+    seatingLayout: {
+      rows: 8,
+      cols: 15,
+      seats: Array.from({ length: 120 }, (_, i) => ({
+        id: `lh-seat-${i + 1}`,
+        number: `${String.fromCharCode(65 + Math.floor(i / 15))}${(i % 15) + 1}`,
+        status: i < 92 ? 'AVAILABLE' : i < 108 ? 'RESERVED' : 'OCCUPIED',
+        hasPower: i % 5 === 0,
+        isAccessible: i < 2,
+      })),
+    },
+  },
+  '2': {
+    layoutLabel: 'Workstation lab grid',
+    focalPoint: 'Tutor desk + projector wall',
+    supportNote: 'Every workstation includes power, with two assistant terminals near the entrance.',
+    seatingLayout: {
+      rows: 6,
+      cols: 5,
+      seats: Array.from({ length: 30 }, (_, i) => ({
+        id: `lab-seat-${i + 1}`,
+        number: `WS${(i + 1).toString().padStart(2, '0')}`,
+        status: i < 22 ? 'AVAILABLE' : i < 27 ? 'RESERVED' : 'OCCUPIED',
+        hasPower: true,
+        isAccessible: i === 0,
+      })),
+    },
+  },
+  '3': {
+    layoutLabel: 'Conference table',
+    focalPoint: 'Center boardroom table + video wall',
+    supportNote: 'Two spare chairs are kept along the side wall for overflow attendees.',
+    conferenceLayout: {
+      tableLabel: 'Board Table',
+      seats: [
+        { id: 'c1', number: 'N1', position: 'top', status: 'AVAILABLE' },
+        { id: 'c2', number: 'N2', position: 'top', status: 'AVAILABLE' },
+        { id: 'c3', number: 'N3', position: 'top', status: 'RESERVED' },
+        { id: 'c4', number: 'E1', position: 'right', status: 'AVAILABLE' },
+        { id: 'c5', number: 'E2', position: 'right', status: 'OCCUPIED' },
+        { id: 'c6', number: 'E3', position: 'right', status: 'AVAILABLE' },
+        { id: 'c7', number: 'S1', position: 'bottom', status: 'AVAILABLE' },
+        { id: 'c8', number: 'S2', position: 'bottom', status: 'AVAILABLE' },
+        { id: 'c9', number: 'S3', position: 'bottom', status: 'RESERVED' },
+        { id: 'c10', number: 'W1', position: 'left', status: 'AVAILABLE' },
+        { id: 'c11', number: 'W2', position: 'left', status: 'AVAILABLE' },
+        { id: 'c12', number: 'W3', position: 'left', status: 'AVAILABLE' },
+      ],
+    },
+  },
+  '5': {
+    layoutLabel: 'Quiet study rows',
+    focalPoint: 'Individual study desks + silent zone entrance',
+    supportNote: 'Reserved desks are grouped near the charging wall for longer sessions.',
+    seatingLayout: {
+      rows: 10,
+      cols: 5,
+      seats: Array.from({ length: 50 }, (_, i) => ({
+        id: `study-seat-${i + 1}`,
+        number: `S${(i + 1).toString().padStart(2, '0')}`,
+        status: i < 30 ? 'AVAILABLE' : i < 42 ? 'RESERVED' : 'OCCUPIED',
+        hasPower: i % 2 === 0,
+        isAccessible: i === 0,
+      })),
+    },
+  },
+};
+
+const getLayoutStats = (resourceProfile) => {
+  if (!resourceProfile) {
+    return { total: 0, available: 0, reserved: 0, occupied: 0 };
+  }
+
+  const seats = resourceProfile.seatingLayout?.seats || resourceProfile.conferenceLayout?.seats || [];
+  if (!seats.length) {
+    return { total: 0, available: 0, reserved: 0, occupied: 0 };
+  }
+
+  return seats.reduce((summary, seat) => {
+    summary.total += 1;
+    if (seat.status === 'AVAILABLE') summary.available += 1;
+    if (seat.status === 'RESERVED') summary.reserved += 1;
+    if (seat.status === 'OCCUPIED') summary.occupied += 1;
+    return summary;
+  }, { total: 0, available: 0, reserved: 0, occupied: 0 });
+};
+
 // ==============================================
 // MAIN COMPONENT
 // ==============================================
@@ -268,6 +347,15 @@ const AdminBookingManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  const enrichedBookings = bookings.map((booking) => {
+    const resourceProfile = RESOURCE_LAYOUTS[booking.resourceId] || null;
+    return {
+      ...booking,
+      resourceProfile,
+      layoutStats: getLayoutStats(resourceProfile),
+    };
+  });
+
   // Show notification
   const showNotificationMessage = (message, type = 'success') => {
     setNotificationMessage(message);
@@ -277,7 +365,7 @@ const AdminBookingManagement = () => {
   };
 
   // Filter bookings
-  const filteredBookings = bookings.filter(booking => {
+  const filteredBookings = enrichedBookings.filter(booking => {
     const matchesSearch = 
       booking.resourceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -357,6 +445,10 @@ const AdminBookingManagement = () => {
     approved: bookings.filter(b => b.status === 'APPROVED').length,
     rejected: bookings.filter(b => b.status === 'REJECTED').length,
   };
+
+  const quickPreviewBooking = selectedBooking || paginatedBookings.find(
+    (booking) => booking.resourceProfile?.seatingLayout || booking.resourceProfile?.conferenceLayout
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-emerald-50 p-6">
@@ -438,6 +530,27 @@ const AdminBookingManagement = () => {
         </div>
       </div>
 
+      {quickPreviewBooking && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">Space Preview</p>
+              <h2 className="text-2xl font-bold text-slate-900 mt-1">{quickPreviewBooking.resourceName}</h2>
+              <p className="text-slate-600 mt-1">
+                {quickPreviewBooking.resourceProfile?.layoutLabel} for booking {quickPreviewBooking.id}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <LayoutStatCard label="Available" value={quickPreviewBooking.layoutStats.available} tone="green" />
+              <LayoutStatCard label="Reserved" value={quickPreviewBooking.layoutStats.reserved} tone="amber" />
+              <LayoutStatCard label="Occupied" value={quickPreviewBooking.layoutStats.occupied} tone="rose" />
+            </div>
+          </div>
+
+          <BookingSpaceLayout booking={quickPreviewBooking} compact />
+        </div>
+      )}
+
       {/* Bookings Table */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -446,6 +559,7 @@ const AdminBookingManagement = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Booking ID</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Resource</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Layout</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Requester</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Date & Time</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Attendees</th>
@@ -465,6 +579,18 @@ const AdminBookingManagement = () => {
                         <p className="font-medium text-slate-900 text-sm">{booking.resourceName}</p>
                         <p className="text-xs text-slate-500">{booking.location}</p>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {booking.resourceProfile ? (
+                        <div className="text-sm">
+                          <p className="font-medium text-slate-900">{booking.resourceProfile.layoutLabel}</p>
+                          <p className="text-xs text-slate-500">
+                            {booking.layoutStats.available} seats free
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">No seating layout</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm">
@@ -502,7 +628,7 @@ const AdminBookingManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan="8" className="px-6 py-8 text-center text-slate-500">
                     No bookings found matching your criteria
                   </td>
                 </tr>
@@ -635,8 +761,177 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const LayoutStatCard = ({ label, value, tone }) => {
+  const tones = {
+    green: 'bg-green-50 border-green-200 text-green-700',
+    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+    rose: 'bg-rose-50 border-rose-200 text-rose-700',
+  };
+
+  return (
+    <div className={`min-w-[88px] rounded-xl border px-4 py-3 text-center ${tones[tone] || tones.green}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</p>
+      <p className="text-2xl font-bold mt-1">{value}</p>
+    </div>
+  );
+};
+
+const SeatStatusLegend = () => (
+  <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+    <span className="flex items-center gap-2">
+      <span className="w-3 h-3 rounded bg-green-100 border border-green-300" />
+      Available
+    </span>
+    <span className="flex items-center gap-2">
+      <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300" />
+      Reserved
+    </span>
+    <span className="flex items-center gap-2">
+      <span className="w-3 h-3 rounded bg-rose-100 border border-rose-300" />
+      Occupied
+    </span>
+    <span className="flex items-center gap-2">
+      <Zap className="w-3 h-3 text-yellow-500" />
+      Power seat
+    </span>
+  </div>
+);
+
+const BookingSpaceLayout = ({ booking, compact = false }) => {
+  const resourceProfile = booking.resourceProfile;
+
+  if (!resourceProfile) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+        Layout preview is not available for this resource type.
+      </div>
+    );
+  }
+
+  if (resourceProfile.conferenceLayout) {
+    const topSeats = resourceProfile.conferenceLayout.seats.filter((seat) => seat.position === 'top');
+    const rightSeats = resourceProfile.conferenceLayout.seats.filter((seat) => seat.position === 'right');
+    const bottomSeats = resourceProfile.conferenceLayout.seats.filter((seat) => seat.position === 'bottom');
+    const leftSeats = resourceProfile.conferenceLayout.seats.filter((seat) => seat.position === 'left');
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-xl bg-slate-900 text-white text-center py-2 text-xs font-semibold uppercase tracking-[0.18em] mb-4">
+              Video Wall
+            </div>
+            <div className="space-y-3">
+              <ConferenceSeatRow seats={topSeats} />
+              <div className="grid grid-cols-[64px_minmax(0,1fr)_64px] gap-3 items-center">
+                <ConferenceSeatColumn seats={leftSeats} />
+                <div className="rounded-[28px] border-2 border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50 p-6 text-center shadow-inner">
+                  <p className="text-sm font-semibold text-slate-900">{resourceProfile.conferenceLayout.tableLabel}</p>
+                  <p className="text-xs text-slate-500 mt-1">{resourceProfile.focalPoint}</p>
+                </div>
+                <ConferenceSeatColumn seats={rightSeats} />
+              </div>
+              <ConferenceSeatRow seats={bottomSeats} />
+            </div>
+          </div>
+
+          {!compact && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">Conference Setup</p>
+                <p className="text-sm text-slate-600 mt-2">{resourceProfile.supportNote}</p>
+              </div>
+              <SeatStatusLegend />
+            </div>
+          )}
+        </div>
+        {compact && <SeatStatusLegend />}
+      </div>
+    );
+  }
+
+  const seats = resourceProfile.seatingLayout?.seats || [];
+  const cols = resourceProfile.seatingLayout?.cols || 1;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_240px] gap-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 overflow-x-auto">
+          <div className="rounded-xl bg-slate-900 text-white text-center py-2 text-xs font-semibold uppercase tracking-[0.18em] mb-4">
+            {resourceProfile.focalPoint}
+          </div>
+          <div
+            className="grid gap-2 min-w-max"
+            style={{ gridTemplateColumns: `repeat(${cols}, ${compact ? '38px' : '46px'})` }}
+          >
+            {seats.map((seat) => (
+              <div
+                key={seat.id}
+                className={`relative rounded-lg border text-center text-[11px] font-semibold py-2 ${
+                  seat.status === 'AVAILABLE'
+                    ? 'bg-green-100 border-green-300 text-green-800'
+                    : seat.status === 'RESERVED'
+                      ? 'bg-amber-100 border-amber-300 text-amber-800'
+                      : 'bg-rose-100 border-rose-300 text-rose-800'
+                }`}
+                title={`${seat.number} - ${seat.status}`}
+              >
+                {compact ? seat.number.replace(/[^0-9A-Z]/g, '').slice(-2) : seat.number}
+                {seat.hasPower && <Zap className="w-3 h-3 text-yellow-500 absolute -top-1 -right-1 bg-white rounded-full p-0.5" />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {!compact && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">Layout Notes</p>
+              <p className="text-sm text-slate-600 mt-2">{resourceProfile.supportNote}</p>
+            </div>
+            <SeatStatusLegend />
+          </div>
+        )}
+      </div>
+      {compact && <SeatStatusLegend />}
+    </div>
+  );
+};
+
+const ConferenceSeatRow = ({ seats }) => (
+  <div className="flex justify-center gap-2">
+    {seats.map((seat) => (
+      <ConferenceSeat seat={seat} key={seat.id} />
+    ))}
+  </div>
+);
+
+const ConferenceSeatColumn = ({ seats }) => (
+  <div className="flex flex-col items-center gap-2">
+    {seats.map((seat) => (
+      <ConferenceSeat seat={seat} key={seat.id} />
+    ))}
+  </div>
+);
+
+const ConferenceSeat = ({ seat }) => (
+  <div
+    className={`w-12 h-12 rounded-xl border text-[11px] font-semibold flex items-center justify-center ${
+      seat.status === 'AVAILABLE'
+        ? 'bg-green-100 border-green-300 text-green-800'
+        : seat.status === 'RESERVED'
+          ? 'bg-amber-100 border-amber-300 text-amber-800'
+          : 'bg-rose-100 border-rose-300 text-rose-800'
+    }`}
+    title={`${seat.number} - ${seat.status}`}
+  >
+    {seat.number}
+  </div>
+);
+
 const BookingDetailModal = ({ booking, onClose, onApprove, onReject, canApproveReject }) => {
   const colors = STATUS_COLORS[booking.status];
+  const layoutStats = booking.layoutStats || getLayoutStats(booking.resourceProfile);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -679,6 +974,9 @@ const BookingDetailModal = ({ booking, onClose, onApprove, onReject, canApproveR
               <p className="text-lg font-bold text-slate-900 mt-1">{booking.resourceName}</p>
               <p className="text-sm text-slate-600 mt-1">{booking.location}</p>
               <p className="text-xs text-slate-500 mt-2">{booking.resourceType}</p>
+              {booking.resourceProfile?.layoutLabel && (
+                <p className="text-xs text-cyan-700 mt-2 font-medium">{booking.resourceProfile.layoutLabel}</p>
+              )}
             </div>
             <div className="bg-slate-50 rounded-lg p-4">
               <label className="text-xs font-semibold text-slate-600 uppercase">Capacity</label>
@@ -691,6 +989,26 @@ const BookingDetailModal = ({ booking, onClose, onApprove, onReject, canApproveR
               </div>
             </div>
           </div>
+
+          {(booking.resourceProfile?.seatingLayout || booking.resourceProfile?.conferenceLayout) && (
+            <div className="border border-slate-200 rounded-lg p-4">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Layout and Seating Availability</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Admin preview of the space the student requested.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <LayoutStatCard label="Free" value={layoutStats.available} tone="green" />
+                  <LayoutStatCard label="Held" value={layoutStats.reserved} tone="amber" />
+                  <LayoutStatCard label="Used" value={layoutStats.occupied} tone="rose" />
+                </div>
+              </div>
+
+              <BookingSpaceLayout booking={booking} />
+            </div>
+          )}
 
           {/* Booking Details */}
           <div className="border border-slate-200 rounded-lg p-4">
