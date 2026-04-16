@@ -205,14 +205,14 @@ const AMENITY_ICONS = {
 };
 
 const StudentResourceView = () => {
-  const [resources, setResources] = useState(RESOURCES_DATA);
+  const [resources] = useState(RESOURCES_DATA);
   const [selectedResource, setSelectedResource] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedAmenity, setSelectedAmenity] = useState('ALL');
   const [viewMode, setViewMode] = useState('grid');
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');

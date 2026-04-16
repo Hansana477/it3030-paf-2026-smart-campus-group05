@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   MapPin, 
   School,
@@ -511,15 +511,7 @@ const AdminResourceManagement = () => {
     return styles[status] || styles.ACTIVE;
   };
 
-  const getSeatStatusBadge = (status) => {
-    const styles = {
-      AVAILABLE: 'bg-green-100 text-green-700',
-      OCCUPIED: 'bg-red-100 text-red-700',
-      RESERVED: 'bg-blue-100 text-blue-700',
-      MAINTENANCE: 'bg-yellow-100 text-yellow-700',
-    };
-    return styles[status];
-  };
+
 
   const getResourceTypeIcon = (type) => {
     switch(type) {
