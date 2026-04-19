@@ -24,11 +24,50 @@ const roleOptions = [
 ];
 
 const studentEmailPattern = /^[A-Z0-9._%+-]+@my\.sliit\.lk$/i;
-const phonePattern = /^\d{10}$/;
+const phonePattern = /^\d{9}$/;
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d\s]).+$/;
 const passwordHelpText =
   "Password must include at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 symbol.";
-const phoneHelpText = "Phone number must contain exactly 10 digits.";
+const phoneHelpText = "Phone number must contain 9 digits after +94.";
+
+function formatPhoneForInput(phone) {
+  if (!phone) {
+    return "";
+  }
+
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10 && digits.startsWith("0")) {
+    return digits.slice(1);
+  }
+
+  if (digits.length === 11 && digits.startsWith("94")) {
+    return digits.slice(2);
+  }
+
+  return digits.slice(0, 9);
+}
+
+function normalizePhoneInput(value) {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.startsWith("94")) {
+    return digits.slice(2, 11);
+  }
+
+  if (digits.startsWith("0")) {
+    return digits.slice(1, 10);
+  }
+
+  return digits.slice(0, 9);
+}
+
+function toStoredPhone(phone) {
+  if (!phone) {
+    return "";
+  }
+
+  return `0${phone}`;
+}
 
 function Register() {
   const [formData, setFormData] = useState(initialForm);
@@ -40,7 +79,7 @@ function Register() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    const nextValue = name === "phone" ? value.replace(/\D/g, "").slice(0, 10) : value;
+    const nextValue = name === "phone" ? normalizePhoneInput(value) : value;
     setFormData((current) => ({
       ...current,
       [name]: nextValue,
@@ -94,7 +133,7 @@ function Register() {
           email: trimmedEmail,
           password: formData.password,
           role: formData.role,
-          phone: trimmedPhone,
+          phone: toStoredPhone(trimmedPhone),
         }),
       });
 
@@ -252,17 +291,22 @@ function Register() {
 
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-primary">Phone</span>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter phone number"
-                inputMode="numeric"
-                maxLength="10"
-                pattern={phonePattern.source}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3.5 text-base text-primary outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
-              />
+              <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80 transition focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
+                <span className="inline-flex items-center border-r border-slate-200 px-4 py-3.5 text-base font-semibold text-slate-500">
+                  +94
+                </span>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formatPhoneForInput(formData.phone)}
+                  onChange={handleChange}
+                  placeholder="7XXXXXXXX"
+                  inputMode="numeric"
+                  maxLength="9"
+                  pattern={phonePattern.source}
+                  className="w-full bg-transparent px-4 py-3.5 text-base text-primary outline-none"
+                />
+              </div>
               <p className="text-sm leading-6 text-slate-500">{phoneHelpText}</p>
             </label>
 

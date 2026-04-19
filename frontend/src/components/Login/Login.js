@@ -19,6 +19,11 @@ const initialForgotPasswordForm = {
   confirmPassword: "",
 };
 
+const initialLoginOtpForm = {
+  email: "",
+  code: "",
+};
+
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 const inputClasses =
   "w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3.5 text-base text-primary outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10";
@@ -89,6 +94,12 @@ function Login() {
   const [selectedGoogleRole, setSelectedGoogleRole] = useState("STUDENT");
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showLoginOtp, setShowLoginOtp] = useState(false);
+  const [loginOtpForm, setLoginOtpForm] = useState(initialLoginOtpForm);
+  const [loginOtpDestination, setLoginOtpDestination] = useState("");
+  const [loginOtpError, setLoginOtpError] = useState("");
+  const [loginOtpSuccess, setLoginOtpSuccess] = useState("");
+  const [isLoginOtpSubmitting, setIsLoginOtpSubmitting] = useState(false);
   const [forgotPasswordStep, setForgotPasswordStep] = useState("request");
   const [forgotPasswordForm, setForgotPasswordForm] = useState(initialForgotPasswordForm);
   const [forgotPasswordError, setForgotPasswordError] = useState("");
@@ -218,6 +229,23 @@ function Login() {
     }));
   };
 
+  const resetLoginOtpState = (email = "") => {
+    setLoginOtpForm({
+      ...initialLoginOtpForm,
+      email,
+    });
+    setLoginOtpError("");
+    setLoginOtpSuccess("");
+  };
+
+  const handleLoginOtpChange = (event) => {
+    const { name, value } = event.target;
+    setLoginOtpForm((current) => ({
+      ...current,
+      [name]: name === "code" ? value.replace(/\D/g, "").slice(0, 6) : value,
+    }));
+  };
+
   const resetForgotPasswordState = (email = "") => {
     setForgotPasswordForm({
       ...initialForgotPasswordForm,
@@ -265,6 +293,14 @@ function Login() {
         throw new Error(message);
       }
 
+      if (data?.requiresOtp) {
+        setShowLoginOtp(true);
+        setLoginOtpDestination(data?.otpDestination || "your email address");
+        resetLoginOtpState(formData.email.trim());
+        setLoginOtpSuccess(data?.message || "A first-time login verification code has been sent to your email.");
+        return;
+      }
+
       saveAuthenticatedUser(data);
       setSuccessMessage("Login successful. Redirecting to your dashboard...");
       setFormData(initialForm);
@@ -273,6 +309,98 @@ function Login() {
       setError(submitError.message || "Something went wrong.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyLoginOtp = async (event) => {
+    event.preventDefault();
+    setIsLoginOtpSubmitting(true);
+    setLoginOtpError("");
+    setLoginOtpSuccess("");
+
+    try {
+      const response = await fetch("http://localhost:8080/users/verify-login-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: loginOtpForm.email.trim(),
+          code: loginOtpForm.code.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          data?.error ||
+          data?.["error Message"] ||
+          "Failed to verify login code.";
+        throw new Error(message);
+      }
+
+      saveAuthenticatedUser(data);
+      setShowLoginOtp(false);
+      setSuccessMessage("Verification successful. Redirecting to your dashboard...");
+      setFormData(initialForm);
+      setLoginOtpDestination("");
+      resetLoginOtpState("");
+      redirectToDashboard(data?.role, navigate, setError);
+    } catch (submitError) {
+      setLoginOtpError(submitError.message || "Something went wrong.");
+    } finally {
+      setIsLoginOtpSubmitting(false);
+    }
+  };
+
+  const handleResendLoginOtp = async () => {
+    if (!formData.email.trim() || !formData.password) {
+      setLoginOtpError("Enter your email and password again to resend the verification code.");
+      return;
+    }
+
+    setIsLoginOtpSubmitting(true);
+    setLoginOtpError("");
+    setLoginOtpSuccess("");
+
+    try {
+      const response = await fetch("http://localhost:8080/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          data?.error ||
+          data?.["error Message"] ||
+          "Failed to resend verification code.";
+        throw new Error(message);
+      }
+
+      if (!data?.requiresOtp) {
+        throw new Error("This account does not require email verification.");
+      }
+
+      setLoginOtpForm((current) => ({
+        ...current,
+        email: formData.email.trim(),
+        code: "",
+      }));
+      setLoginOtpDestination(data?.otpDestination || "your email address");
+      setLoginOtpSuccess(data?.message || "A new verification code has been sent.");
+    } catch (submitError) {
+      setLoginOtpError(submitError.message || "Something went wrong.");
+    } finally {
+      setIsLoginOtpSubmitting(false);
     }
   };
 
@@ -754,6 +882,95 @@ function Login() {
                     : forgotPasswordStep === "request"
                       ? "Send reset code"
                       : "Reset password"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {showLoginOtp ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-primary/20 px-4 py-6 backdrop-blur-sm" role="presentation">
+          <section
+            className="mx-auto w-full max-w-2xl rounded-[32px] border border-white/70 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-otp-title"
+          >
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Login Verification</p>
+            <h2 id="login-otp-title" className="mt-4 text-3xl font-extrabold text-primary">Enter your first-time email OTP</h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-slate-500">
+              We sent a 6-digit verification code to {loginOtpDestination || "your email address"} to confirm your first login. Enter it below to finish signing in.
+            </p>
+
+            <form className="mt-6 grid gap-5" onSubmit={handleVerifyLoginOtp}>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-primary">Email</span>
+                <input
+                  type="email"
+                  name="email"
+                  value={loginOtpForm.email}
+                  onChange={handleLoginOtpChange}
+                  className={inputClasses}
+                  required
+                />
+                <p className="text-sm leading-6 text-slate-500">
+                  We use your email here to identify the account and deliver the OTP.
+                </p>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-primary">Verification code</span>
+                <input
+                  type="text"
+                  name="code"
+                  value={loginOtpForm.code}
+                  onChange={handleLoginOtpChange}
+                  placeholder="Enter 6-digit code"
+                  inputMode="numeric"
+                  maxLength="6"
+                  className={inputClasses}
+                  required
+                />
+              </label>
+
+              {loginOtpError ? (
+                <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {loginOtpError}
+                </p>
+              ) : null}
+              {loginOtpSuccess ? (
+                <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {loginOtpSuccess}
+                </p>
+              ) : null}
+
+              <div className="mt-3 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-primary transition hover:border-slate-300"
+                  onClick={() => {
+                    setShowLoginOtp(false);
+                    setLoginOtpDestination("");
+                    resetLoginOtpState(formData.email.trim());
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-primary transition hover:border-slate-300 disabled:cursor-wait disabled:opacity-70"
+                  onClick={handleResendLoginOtp}
+                  disabled={isLoginOtpSubmitting}
+                >
+                  Resend code
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
+                  disabled={isLoginOtpSubmitting}
+                >
+                  {isLoginOtpSubmitting ? "Verifying..." : "Verify and login"}
                 </button>
               </div>
             </form>

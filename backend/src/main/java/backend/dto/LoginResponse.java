@@ -6,6 +6,8 @@ public class LoginResponse {
 
     private String message;
     private String token;
+    private boolean requiresOtp;
+    private String otpDestination;
     private Long id;
     private String fullName;
     private String email;
@@ -18,8 +20,19 @@ public class LoginResponse {
 
     public LoginResponse(String message, String token, Long id, String fullName, String email, String role, String phone,
                          boolean active, boolean approved, LocalDateTime createdAt, LocalDateTime lastLogin) {
+        this(message, token, false, null, id, fullName, email, role, phone, active, approved, createdAt, lastLogin);
+    }
+
+    public LoginResponse(String message, boolean requiresOtp, String otpDestination, String email, String role) {
+        this(message, null, requiresOtp, otpDestination, null, null, email, role, null, false, false, null, null);
+    }
+
+    public LoginResponse(String message, String token, boolean requiresOtp, String otpDestination, Long id, String fullName, String email, String role, String phone,
+                         boolean active, boolean approved, LocalDateTime createdAt, LocalDateTime lastLogin) {
         this.message = message;
         this.token = token;
+        this.requiresOtp = requiresOtp;
+        this.otpDestination = otpDestination;
         this.id = id;
         this.fullName = fullName;
         this.email = email;
@@ -37,6 +50,14 @@ public class LoginResponse {
 
     public String getToken() {
         return token;
+    }
+
+    public boolean isRequiresOtp() {
+        return requiresOtp;
+    }
+
+    public String getOtpDestination() {
+        return otpDestination;
     }
 
     public Long getId() {

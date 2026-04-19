@@ -4,8 +4,47 @@ import Header from "../Header/Header";
 
 const adminInputClasses =
   "w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-base text-primary outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10";
-const phonePattern = /^\d{10}$/;
-const phoneHelpText = "Phone number must contain exactly 10 digits.";
+const phonePattern = /^\d{9}$/;
+const phoneHelpText = "Phone number must contain 9 digits after +94.";
+
+function formatPhoneForInput(phone) {
+  if (!phone) {
+    return "";
+  }
+
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10 && digits.startsWith("0")) {
+    return digits.slice(1);
+  }
+
+  if (digits.length === 11 && digits.startsWith("94")) {
+    return digits.slice(2);
+  }
+
+  return digits.slice(0, 9);
+}
+
+function normalizePhoneInput(value) {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.startsWith("94")) {
+    return digits.slice(2, 11);
+  }
+
+  if (digits.startsWith("0")) {
+    return digits.slice(1, 10);
+  }
+
+  return digits.slice(0, 9);
+}
+
+function toStoredPhone(phone) {
+  if (!phone) {
+    return "";
+  }
+
+  return `0${phone}`;
+}
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -131,7 +170,7 @@ function AdminDashboard() {
     setEditForm({
       fullName: listedUser.fullName ?? "",
       email: listedUser.email ?? "",
-      phone: listedUser.phone ?? "",
+      phone: formatPhoneForInput(listedUser.phone ?? ""),
       role: listedUser.role ?? "STUDENT",
       active: Boolean(listedUser.active),
       approved: Boolean(listedUser.approved),
@@ -155,7 +194,7 @@ function AdminDashboard() {
         [name]: type === "checkbox"
           ? checked
           : name === "phone"
-            ? value.replace(/\D/g, "").slice(0, 10)
+            ? normalizePhoneInput(value)
             : value,
       };
 
@@ -194,7 +233,7 @@ function AdminDashboard() {
         body: JSON.stringify({
           fullName: editForm.fullName.trim(),
           email: editForm.email.trim(),
-          phone: trimmedPhone,
+          phone: toStoredPhone(trimmedPhone),
           role: editForm.role,
           active: editForm.active,
           approved: editForm.role === "TECHNICIAN" ? editForm.approved : true,
@@ -563,16 +602,22 @@ function AdminDashboard() {
                 <div className="grid gap-5 md:grid-cols-2">
                   <label className="grid gap-2">
                     <span className="text-sm font-semibold text-primary">Phone</span>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={editForm.phone}
-                      onChange={handleEditFormChange}
-                      inputMode="numeric"
-                      maxLength="10"
-                      pattern={phonePattern.source}
-                      className={adminInputClasses}
-                    />
+                    <div className="flex overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80 transition focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
+                      <span className="inline-flex items-center border-r border-slate-200 px-4 py-3 text-base font-semibold text-slate-500">
+                        +94
+                      </span>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={editForm.phone}
+                        onChange={handleEditFormChange}
+                        inputMode="numeric"
+                        maxLength="9"
+                        pattern={phonePattern.source}
+                        placeholder="7XXXXXXXX"
+                        className="w-full bg-transparent px-4 py-3 text-base text-primary outline-none"
+                      />
+                    </div>
                     <p className="text-sm leading-6 text-slate-500">{phoneHelpText}</p>
                   </label>
 
