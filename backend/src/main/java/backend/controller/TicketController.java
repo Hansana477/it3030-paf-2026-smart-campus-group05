@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -109,5 +110,22 @@ public class TicketController {
         }
 
         return ticketRepository.save(ticket);
+    }
+
+    @GetMapping
+    public List<TicketModel> getAllTickets(@AuthenticationPrincipal UserModel currentUser) {
+        if (currentUser == null) {
+            throw new TicketForbiddenException("Authentication required");
+        }
+
+        if ("ADMIN".equals(currentUser.getRole())) {
+            return ticketRepository.findAll();
+        }
+
+        if ("TECHNICIAN".equals(currentUser.getRole())) {
+            return ticketRepository.findByAssignedTo(currentUser);
+        }
+
+        return ticketRepository.findByCreatedBy(currentUser);
     }
 }
