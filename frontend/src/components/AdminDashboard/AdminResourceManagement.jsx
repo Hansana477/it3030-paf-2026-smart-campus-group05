@@ -714,6 +714,12 @@ const AdminResourceManagement = () => {
                         <button onClick={() => handleDeleteResource(resource.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg">
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => onSelect(resource)}
+                          className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-1"
+                        >
+                        <CheckCircle className="w-3.5 h-3.5" /> Select
+                        </button>
                       </div>
                     </td>
                   </tr>
