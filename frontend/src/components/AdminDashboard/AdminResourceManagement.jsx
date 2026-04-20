@@ -272,22 +272,6 @@ const AdminResourceManagement = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const filteredResources = resources.filter(resource => {
-  const query = searchTerm.toLowerCase();
-
-  const matchesSearch =
-    resource.name.toLowerCase().includes(query) ||
-    resource.location.toLowerCase().includes(query) ||
-    resource.description.toLowerCase().includes(query) ||
-    (resource.amenities || []).some(amenity =>
-      amenity.toLowerCase().includes(query)
-    );
-
-  const matchesType = selectedType === 'ALL' || resource.type === selectedType;
-  const matchesStatus = selectedStatus === 'ALL' || resource.status === selectedStatus;
-
-  return matchesSearch && matchesType && matchesStatus;
-});
 
   // Resource CRUD
   const handleAddResource = () => {
@@ -1080,6 +1064,19 @@ const AdminResourceManagement = () => {
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="e.g., A01, B12"
                 />
+                if (!seatForm.number?.trim()) {
+                  showNotificationMessage('Seat number is required', 'error');
+                  return;
+                }
+
+                const isDuplicate = selectedResource.seatingLayout.seats.some(
+                  (s) => s.number === seatForm.number && s.id !== seatForm.id
+               );
+
+                if (isDuplicate) {
+                  showNotificationMessage('Seat number already exists!', 'error');
+                  return;
+          }
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">Seat Type</label>
