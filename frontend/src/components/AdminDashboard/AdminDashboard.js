@@ -46,6 +46,12 @@ function toStoredPhone(phone) {
   return `0${phone}`;
 }
 
+const roleFilterOptions = [
+  { value: "ALL", label: "All users" },
+  { value: "STUDENT", label: "Students" },
+  { value: "TECHNICIAN", label: "Technicians" },
+];
+
 function AdminDashboard() {
   const navigate = useNavigate();
   const storedUser = localStorage.getItem("user");
@@ -63,6 +69,7 @@ function AdminDashboard() {
   const [editSuccess, setEditSuccess] = useState("");
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState("ALL");
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -326,11 +333,57 @@ function AdminDashboard() {
     }
   };
 
+  const handleDownloadReport = () => {
+    const reportRows = filteredUsers.map((listedUser) => ({
+      Name: listedUser.fullName ?? "",
+      Email: listedUser.email ?? "",
+      Role: listedUser.role ?? "",
+      Phone: listedUser.phone ?? "",
+      Status: listedUser.active ? "Active" : "Inactive",
+      Approval: listedUser.approved ? "Approved" : "Pending",
+      "Created At": listedUser.createdAt ?? "",
+      "Last Login": listedUser.lastLogin ?? "",
+    }));
+
+    if (!reportRows.length) {
+      setError("There are no users in the selected filter to download.");
+      return;
+    }
+
+    const headers = Object.keys(reportRows[0]);
+    const csvContent = [
+      headers.join(","),
+      ...reportRows.map((row) =>
+        headers
+          .map((header) => `"${String(row[header] ?? "").replace(/"/g, "\"\"")}"`)
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const reportLabel = selectedRoleFilter === "ALL"
+      ? "all-users"
+      : `${selectedRoleFilter.toLowerCase()}-report`;
+
+    link.href = downloadUrl;
+    link.setAttribute("download", `${reportLabel}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  };
+
   const totalUsers = allUsers.length;
   const studentCount = allUsers.filter((existingUser) => existingUser.role === "STUDENT").length;
   const technicianCount = allUsers.filter((existingUser) => existingUser.role === "TECHNICIAN").length;
   const adminCount = allUsers.filter((existingUser) => existingUser.role === "ADMIN").length;
   const activeUserCount = allUsers.filter((existingUser) => existingUser.active).length;
+  const filteredUsers = allUsers.filter((existingUser) =>
+    selectedRoleFilter === "ALL" ? true : existingUser.role === selectedRoleFilter
+  );
+  const selectedFilterLabel = roleFilterOptions.find((option) => option.value === selectedRoleFilter)?.label ?? "All users";
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
@@ -454,14 +507,44 @@ function AdminDashboard() {
               <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">User Directory</p>
               <h2 className="mt-3 text-3xl font-extrabold text-primary">All registered users</h2>
               <p className="mt-2 text-base leading-7 text-slate-500">
-                View the full system user list with role, status, approval state, and contact details.
+                Filter students and technicians quickly, then download the relevant report as a CSV file.
               </p>
             </div>
-            <div className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-sm text-slate-500">
-              Total records:
-              {" "}
-              <span className="font-semibold text-primary">{totalUsers}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-sm text-slate-500">
+                Showing:
+                {" "}
+                <span className="font-semibold text-primary">{filteredUsers.length}</span>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                onClick={handleDownloadReport}
+              >
+                Download {selectedFilterLabel} report
+              </button>
             </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            {roleFilterOptions.map((option) => {
+              const isActive = option.value === selectedRoleFilter;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-primary text-white shadow-[0_12px_24px_rgba(15,23,42,0.14)]"
+                      : "border border-slate-200 bg-white text-primary hover:border-accent"
+                  }`}
+                  onClick={() => setSelectedRoleFilter(option.value)}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-6 overflow-x-auto rounded-[24px] border border-slate-200">
@@ -478,7 +561,7 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-                {allUsers.map((listedUser) => (
+                {filteredUsers.map((listedUser) => (
                   <tr key={listedUser.id} className="align-top">
                     <td className="px-4 py-4">
                       <div className="font-semibold text-primary">{listedUser.fullName}</div>
@@ -537,9 +620,9 @@ function AdminDashboard() {
             </table>
           </div>
 
-          {!isLoading && !allUsers.length ? (
+          {!isLoading && !filteredUsers.length ? (
             <p className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-              No users found in the system yet.
+              No users found for the selected filter.
             </p>
           ) : null}
         </section>
