@@ -287,6 +287,53 @@ const AdminResourceManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const uploadResourceImages = async (files) => {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
+
+    if (!token) {
+      showNotificationMessage('Missing login token. Please log in again.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const uploadedUrls = [];
+
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(`${API_BASE_URL}/resources/images`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error || data?.['error Message'] || `Failed to upload ${file.name}`);
+        }
+
+        if (data?.url) {
+          uploadedUrls.push(data.url);
+        }
+      }
+
+      setResourceForm(prev => ({
+        ...prev,
+        images: [...(prev.images || []), ...uploadedUrls],
+      }));
+      showNotificationMessage(`${uploadedUrls.length} image${uploadedUrls.length !== 1 ? 's' : ''} uploaded`, 'success');
+    } catch (error) {
+      showNotificationMessage(error.message || 'Failed to upload image', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Show notification helper
   const showNotificationMessage = (message, type = 'success') => {
     setNotificationMessage(message);
@@ -975,28 +1022,43 @@ const AdminResourceManagement = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-700 mb-1 block">Resource Image URL</label>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">Resource Images</label>
                     <input
-                      type="url"
-                      value={resourceForm.images?.[0] || ''}
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      multiple
                       onChange={(e) => {
-                        const imageUrl = e.target.value.trim();
-                        setResourceForm({
-                          ...resourceForm,
-                          images: imageUrl ? [imageUrl] : [],
-                        });
+                        uploadResourceImages(e.target.files);
+                        e.target.value = '';
                       }}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="https://example.com/resource-image.jpg"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    {resourceForm.images?.[0] && (
-                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                        <img
-                          src={resourceForm.images[0]}
-                          alt="Resource preview"
-                          className="h-44 w-full object-cover"
-                        />
+                    {resourceForm.images?.length > 0 ? (
+                      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                        {resourceForm.images.map((imageUrl, imageIndex) => (
+                          <div key={`${imageUrl}-${imageIndex}`} className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                            <img
+                              src={imageUrl}
+                              alt={`Resource preview ${imageIndex + 1}`}
+                              className="h-32 w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResourceForm({
+                                  ...resourceForm,
+                                  images: (resourceForm.images || []).filter((_, index) => index !== imageIndex),
+                                });
+                              }}
+                              className="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-red-600 shadow hover:bg-white"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">Select one or more local images to upload for this resource.</p>
                     )}
                   </div>
                   

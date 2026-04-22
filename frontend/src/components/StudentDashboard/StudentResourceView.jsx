@@ -431,14 +431,28 @@ const StudentResourceView = () => {
             </div>
             
             <div className="p-6">
-              {/* Image */}
-              {selectedResource.images && selectedResource.images[0] && (
-                <div className="mb-6 rounded-xl overflow-hidden">
-                  <img 
-                    src={selectedResource.images[0]} 
-                    alt={selectedResource.name}
-                    className="w-full h-64 object-cover"
-                  />
+              {/* Images */}
+              {selectedResource.images?.length > 0 && (
+                <div className="mb-6">
+                  <div className="rounded-xl overflow-hidden">
+                    <img
+                      src={selectedResource.images[0]}
+                      alt={selectedResource.name}
+                      className="w-full h-64 object-cover"
+                    />
+                  </div>
+                  {selectedResource.images.length > 1 && (
+                    <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                      {selectedResource.images.slice(1).map((imageUrl, imageIndex) => (
+                        <img
+                          key={`${imageUrl}-${imageIndex}`}
+                          src={imageUrl}
+                          alt={`${selectedResource.name} view ${imageIndex + 2}`}
+                          className="h-24 w-full rounded-lg border border-slate-200 object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               
