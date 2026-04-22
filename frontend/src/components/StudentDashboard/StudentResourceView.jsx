@@ -34,164 +34,6 @@ import {
   HeartOff
 } from 'lucide-react';
 
-// ==============================================
-// DUMMY DATA (Same as admin side)
-// ==============================================
-const RESOURCES_DATA = [
-  {
-    id: '1',
-    name: 'Main Lecture Hall A',
-    type: 'LECTURE_HALL',
-    location: 'Building A, Floor 1',
-    capacity: 120,
-    status: 'ACTIVE',
-    description: 'Large lecture hall with projector and sound system. Perfect for lectures, presentations, and large group activities.',
-    amenities: ['Projector', 'Sound System', 'Air Conditioning', 'Whiteboard', 'WiFi', 'Power Outlets'],
-    availabilityWindows: [
-      { dayOfWeek: 1, startTime: '08:00', endTime: '20:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '20:00' },
-      { dayOfWeek: 3, startTime: '08:00', endTime: '20:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '20:00' },
-      { dayOfWeek: 5, startTime: '08:00', endTime: '18:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1586473219010-2ffc57b0d282?w=500&h=300&fit=crop'],
-    rating: 4.5,
-    reviews: 128,
-    seatingLayout: {
-      rows: 8,
-      cols: 15,
-      seats: Array.from({ length: 120 }, (_, i) => ({
-        id: `seat-${i+1}`,
-        number: `${String.fromCharCode(65 + Math.floor(i / 15))}${(i % 15) + 1}`,
-        status: i < 100 ? 'AVAILABLE' : 'OCCUPIED',
-        hasPower: i % 5 === 0,
-      })),
-    },
-  },
-  {
-    id: '2',
-    name: 'Computer Lab 301',
-    type: 'LAB',
-    location: 'Building C, Floor 3',
-    capacity: 30,
-    status: 'ACTIVE',
-    description: 'Modern computer lab equipped with high-performance workstations, specialized software for programming and design.',
-    amenities: ['Computers', 'Printers', 'Software Licenses', 'Air Conditioning', 'WiFi', 'Scanning'],
-    availabilityWindows: [
-      { dayOfWeek: 1, startTime: '09:00', endTime: '18:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '18:00' },
-      { dayOfWeek: 3, startTime: '09:00', endTime: '18:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '18:00' },
-      { dayOfWeek: 5, startTime: '09:00', endTime: '17:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1581091226033-d5c48150dbaa?w=500&h=300&fit=crop'],
-    rating: 4.8,
-    reviews: 95,
-    seatingLayout: {
-      rows: 6,
-      cols: 5,
-      seats: Array.from({ length: 30 }, (_, i) => ({
-        id: `seat-${i+1}`,
-        number: `WS${(i+1).toString().padStart(2, '0')}`,
-        status: 'AVAILABLE',
-        hasPower: true,
-      })),
-    },
-  },
-  {
-    id: '3',
-    name: 'Conference Room B',
-    type: 'MEETING_ROOM',
-    location: 'Building B, Floor 2',
-    capacity: 12,
-    status: 'ACTIVE',
-    description: 'Executive meeting room with video conferencing capabilities. Ideal for team meetings and client presentations.',
-    amenities: ['Video Conference', 'Smart Board', 'Coffee Machine', 'Whiteboard', 'WiFi', 'Power Outlets'],
-    availabilityWindows: [
-      { dayOfWeek: 1, startTime: '08:00', endTime: '19:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '19:00' },
-      { dayOfWeek: 3, startTime: '08:00', endTime: '19:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '19:00' },
-      { dayOfWeek: 5, startTime: '08:00', endTime: '18:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1497366216548-37526070297c?w=500&h=300&fit=crop'],
-    rating: 4.7,
-    reviews: 64,
-  },
-  {
-    id: '4',
-    name: 'Portable Projector',
-    type: 'EQUIPMENT',
-    location: 'AV Room, Building A',
-    capacity: 1,
-    status: 'ACTIVE',
-    description: 'Epson Portable Projector, 4000 lumens. Perfect for presentations and movie screenings.',
-    amenities: ['HDMI Cable', 'VGA Cable', 'Remote Control', 'Carry Case', 'Tripod'],
-    availabilityWindows: [
-      { dayOfWeek: 1, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 3, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 5, startTime: '09:00', endTime: '16:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=500&h=300&fit=crop'],
-    rating: 4.3,
-    reviews: 42,
-  },
-  {
-    id: '5',
-    name: 'Silent Study Area',
-    type: 'STUDY_AREA',
-    location: 'Library, Floor 2',
-    capacity: 50,
-    status: 'ACTIVE',
-    description: 'Quiet zone for individual study. Strict silence maintained for optimal concentration.',
-    amenities: ['WiFi', 'Power Outlets', 'Lockers', 'Water Dispenser', 'Study Desks', 'Reading Lamps'],
-    availabilityWindows: [
-      { dayOfWeek: 0, startTime: '10:00', endTime: '22:00' },
-      { dayOfWeek: 1, startTime: '08:00', endTime: '23:00' },
-      { dayOfWeek: 2, startTime: '08:00', endTime: '23:00' },
-      { dayOfWeek: 3, startTime: '08:00', endTime: '23:00' },
-      { dayOfWeek: 4, startTime: '08:00', endTime: '23:00' },
-      { dayOfWeek: 5, startTime: '08:00', endTime: '20:00' },
-      { dayOfWeek: 6, startTime: '10:00', endTime: '18:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=500&h=300&fit=crop'],
-    rating: 4.9,
-    reviews: 203,
-    seatingLayout: {
-      rows: 10,
-      cols: 5,
-      seats: Array.from({ length: 50 }, (_, i) => ({
-        id: `seat-${i+1}`,
-        number: `S${(i+1).toString().padStart(2, '0')}`,
-        status: i < 35 ? 'AVAILABLE' : (i < 45 ? 'RESERVED' : 'OCCUPIED'),
-        hasPower: i % 2 === 0,
-      })),
-    },
-  },
-  {
-    id: '6',
-    name: 'Group Study Room 204',
-    type: 'STUDY_AREA',
-    location: 'Library, Floor 2',
-    capacity: 8,
-    status: 'MAINTENANCE',
-    description: 'Collaborative study room with whiteboard. Perfect for group projects and discussions.',
-    amenities: ['Whiteboard', 'Power Outlets', 'Table', 'Chairs', 'WiFi', 'Markers'],
-    availabilityWindows: [
-      { dayOfWeek: 1, startTime: '09:00', endTime: '21:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '21:00' },
-      { dayOfWeek: 3, startTime: '09:00', endTime: '21:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '21:00' },
-      { dayOfWeek: 5, startTime: '09:00', endTime: '19:00' },
-    ],
-    images: ['https://images.unsplash.com/photo-1577896851231-70ef18881754?w=500&h=300&fit=crop'],
-    rating: 4.2,
-    reviews: 87,
-  },
-];
-
 const AMENITY_ICONS = {
   'WiFi': <Wifi className="w-4 h-4" />,
   'Power Outlets': <Zap className="w-4 h-4" />,
@@ -204,15 +46,17 @@ const AMENITY_ICONS = {
   'Whiteboard': <Table className="w-4 h-4" />,
 };
 
+const API_BASE_URL = 'http://localhost:8082';
+
 const StudentResourceView = () => {
-  const [resources] = useState(RESOURCES_DATA);
+  const [resources, setResources] = useState([]);
   const [selectedResource, setSelectedResource] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedAmenity, setSelectedAmenity] = useState('ALL');
   const [viewMode, setViewMode] = useState('grid');
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState([]);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
@@ -222,16 +66,39 @@ const StudentResourceView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  useEffect(() => {
+    const loadResources = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources?status=ACTIVE`);
+        const data = await response.json().catch(() => []);
+
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error || 'Failed to load resources');
+        }
+
+        setResources(Array.isArray(data) ? data : []);
+      } catch (error) {
+        showNotificationMessage(error.message || 'Failed to load resources', 'error');
+        setResources([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadResources();
+  }, []);
+
   // Get unique amenities for filter
-  const allAmenities = ['ALL', ...new Set(resources.flatMap(r => r.amenities))];
+  const allAmenities = ['ALL', ...new Set(resources.flatMap(r => r.amenities || []))];
 
   // Filter resources
   const filteredResources = resources.filter(resource => {
-    const matchesSearch = resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          resource.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          resource.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (resource.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (resource.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (resource.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = selectedType === 'ALL' || resource.type === selectedType;
-    const matchesAmenity = selectedAmenity === 'ALL' || resource.amenities.includes(selectedAmenity);
+    const matchesAmenity = selectedAmenity === 'ALL' || (resource.amenities || []).includes(selectedAmenity);
     const matchesStatus = resource.status === 'ACTIVE'; // Only show active resources to students
     return matchesSearch && matchesType && matchesAmenity && matchesStatus;
   });
@@ -701,28 +568,6 @@ const StudentResourceView = () => {
               >
                 Close
               </button>
-              <div className="flex gap-2">
-              <input
-                type="text"
-               value={seatForm.number || ''}
-               onChange={(e) => setSeatForm({ ...seatForm, number: e.target.value.toUpperCase() })}
-               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-               placeholder="e.g., A01, B12"
-               />
-
-              <button
-              type="button"
-                onClick={() => {
-                const row = String.fromCharCode(65 + seatForm.y);
-                const col = (seatForm.x + 1).toString().padStart(2, '0');
-                const autoNumber = `${row}${col}`;
-                setSeatForm({ ...seatForm, number: autoNumber });
-                }}
-                className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
-              >
-                  Auto
-              </button>
-             </div>
               <button
                 className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
               >

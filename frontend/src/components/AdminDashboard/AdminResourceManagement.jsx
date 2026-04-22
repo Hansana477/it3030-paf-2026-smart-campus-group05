@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   MapPin, 
   School,
@@ -206,11 +206,14 @@ const LOCATIONS = [
   'Student Center', 'Lab Complex', 'AV Room'
 ];
 
+const API_BASE_URL = 'http://localhost:8082';
+
 // ==============================================
 // MAIN COMPONENT
 // ==============================================
 const AdminResourceManagement = () => {
-  const [resources, setResources] = useState(DUMMY_RESOURCES);
+  const token = localStorage.getItem('token');
+  const [resources, setResources] = useState(() => DUMMY_RESOURCES.slice(0, 0));
   const [selectedResource, setSelectedResource] = useState(null);
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
@@ -233,6 +236,7 @@ const AdminResourceManagement = () => {
     capacity: 0,
     status: 'ACTIVE',
     description: '',
+    images: [],
     amenities: [],
     availabilityWindows: [
       { dayOfWeek: 1, startTime: '09:00', endTime: '17:00' }
@@ -254,6 +258,34 @@ const AdminResourceManagement = () => {
   const [formErrors, setFormErrors] = useState({});
   const [seatGridRows, setSeatGridRows] = useState(4);
   const [seatGridCols, setSeatGridCols] = useState(4);
+
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  });
+
+  const loadResources = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/resources`);
+      const data = await response.json().catch(() => []);
+
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to load resources');
+      }
+
+      setResources(Array.isArray(data) ? data : []);
+    } catch (error) {
+      showNotificationMessage(error.message || 'Failed to load resources', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadResources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Show notification helper
   const showNotificationMessage = (message, type = 'success') => {
@@ -282,6 +314,7 @@ const AdminResourceManagement = () => {
       capacity: 0,
       status: 'ACTIVE',
       description: '',
+      images: [],
       amenities: [],
       availabilityWindows: [{ dayOfWeek: 1, startTime: '09:00', endTime: '17:00' }],
     });
@@ -304,10 +337,24 @@ const AdminResourceManagement = () => {
     setShowResourceModal(true);
   };
 
-  const handleDeleteResource = (resourceId) => {
+  const handleDeleteResource = async (resourceId) => {
     if (window.confirm('Are you sure you want to delete this resource? This action cannot be undone.')) {
-      setResources(prev => prev.filter(r => r.id !== resourceId));
-      showNotificationMessage('Resource deleted successfully!', 'success');
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources/${resourceId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error || data?.['error Message'] || 'Failed to delete resource');
+        }
+
+        setResources(prev => prev.filter(r => r.id !== resourceId));
+        showNotificationMessage('Resource deleted successfully!', 'success');
+      } catch (error) {
+        showNotificationMessage(error.message || 'Failed to delete resource', 'error');
+      }
     }
   };
 
@@ -343,28 +390,38 @@ const AdminResourceManagement = () => {
     return seats;
   };
 
-  const handleSaveResource = () => {
+  const handleSaveResource = async () => {
     if (!validateResourceForm()) {
       showNotificationMessage('Please fix the errors in the form', 'error');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
       if (isEditing && selectedResource) {
-        setResources(prev => prev.map(r => 
-          r.id === selectedResource.id ? { ...r, ...resourceForm, id: r.id } : r
-        ));
+        const response = await fetch(`${API_BASE_URL}/resources/${selectedResource.id}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ ...selectedResource, ...resourceForm, id: selectedResource.id }),
+        });
+        const savedResource = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(savedResource?.message || savedResource?.error || savedResource?.['error Message'] || 'Failed to update resource');
+        }
+
+        setResources(prev => prev.map(r => r.id === selectedResource.id ? savedResource : r));
+        setSelectedResource(savedResource);
         showNotificationMessage('Resource updated successfully!', 'success');
       } else {
         const newResource = {
-          id: Date.now().toString(),
           name: resourceForm.name,
           type: resourceForm.type,
           location: resourceForm.location,
           capacity: resourceForm.capacity,
           status: resourceForm.status,
           description: resourceForm.description,
+          images: resourceForm.images || [],
           amenities: resourceForm.amenities || [],
           availabilityWindows: resourceForm.availabilityWindows || [],
           ...((resourceForm.type === 'LECTURE_HALL' || resourceForm.type === 'STUDY_AREA' || resourceForm.type === 'LAB') ? {
@@ -383,12 +440,26 @@ const AdminResourceManagement = () => {
             }
           } : {}),
         };
-        setResources(prev => [...prev, newResource]);
+        const response = await fetch(`${API_BASE_URL}/resources`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(newResource),
+        });
+        const savedResource = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(savedResource?.message || savedResource?.error || savedResource?.['error Message'] || 'Failed to create resource');
+        }
+
+        setResources(prev => [...prev, savedResource]);
         showNotificationMessage('Resource created successfully!', 'success');
       }
       setShowResourceModal(false);
+    } catch (error) {
+      showNotificationMessage(error.message || 'Failed to save resource', 'error');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // Seat management
@@ -412,7 +483,7 @@ const AdminResourceManagement = () => {
     setShowSeatModal(true);
   };
 
-  const handleDeleteSeat = (seatId) => {
+  const handleDeleteSeat = async (seatId) => {
     if (!selectedResource || !selectedResource.seatingLayout) return;
     if (window.confirm('Delete this seat?')) {
       const updatedSeats = selectedResource.seatingLayout.seats.filter(s => s.id !== seatId);
@@ -423,13 +494,28 @@ const AdminResourceManagement = () => {
           seats: updatedSeats,
         },
       };
-      setResources(prev => prev.map(r => r.id === selectedResource.id ? updatedResource : r));
-      setSelectedResource(updatedResource);
-      showNotificationMessage('Seat deleted successfully', 'success');
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources/${selectedResource.id}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(updatedResource),
+        });
+        const savedResource = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(savedResource?.message || savedResource?.error || savedResource?.['error Message'] || 'Failed to delete seat');
+        }
+
+        setResources(prev => prev.map(r => r.id === selectedResource.id ? savedResource : r));
+        setSelectedResource(savedResource);
+        showNotificationMessage('Seat deleted successfully', 'success');
+      } catch (error) {
+        showNotificationMessage(error.message || 'Failed to delete seat', 'error');
+      }
     }
   };
 
-  const handleSaveSeat = () => {
+  const handleSaveSeat = async () => {
     if (!selectedResource || !selectedResource.seatingLayout) return;
     
     if (!seatForm.number?.trim()) {
@@ -448,14 +534,29 @@ const AdminResourceManagement = () => {
         seats: updatedSeats,
       },
     };
-    
-    setResources(prev => prev.map(r => r.id === selectedResource.id ? updatedResource : r));
-    setSelectedResource(updatedResource);
-    setShowSeatModal(false);
-    showNotificationMessage(seatForm.id ? 'Seat updated successfully' : 'Seat added successfully', 'success');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/resources/${selectedResource.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updatedResource),
+      });
+      const savedResource = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(savedResource?.message || savedResource?.error || savedResource?.['error Message'] || 'Failed to save seat');
+      }
+
+      setResources(prev => prev.map(r => r.id === selectedResource.id ? savedResource : r));
+      setSelectedResource(savedResource);
+      setShowSeatModal(false);
+      showNotificationMessage(seatForm.id ? 'Seat updated successfully' : 'Seat added successfully', 'success');
+    } catch (error) {
+      showNotificationMessage(error.message || 'Failed to save seat', 'error');
+    }
   };
 
-  const handleRegenerateSeats = () => {
+  const handleRegenerateSeats = async () => {
     if (!selectedResource) return;
     if (window.confirm('This will replace all existing seats with a new grid. Continue?')) {
       const newSeats = generateSeats(seatGridRows, seatGridCols);
@@ -467,9 +568,25 @@ const AdminResourceManagement = () => {
           seats: newSeats,
         },
       };
-      setResources(prev => prev.map(r => r.id === selectedResource.id ? updatedResource : r));
-      setSelectedResource(updatedResource);
-      showNotificationMessage(`Generated ${newSeats.length} seats in ${seatGridRows}x${seatGridCols} layout`, 'success');
+      try {
+        const response = await fetch(`${API_BASE_URL}/resources/${selectedResource.id}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(updatedResource),
+        });
+        const savedResource = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(savedResource?.message || savedResource?.error || savedResource?.['error Message'] || 'Failed to regenerate seats');
+        }
+
+        setResources(prev => prev.map(r => r.id === selectedResource.id ? savedResource : r));
+        setSelectedResource(savedResource);
+        setResourceForm(savedResource);
+        showNotificationMessage(`Generated ${newSeats.length} seats in ${seatGridRows}x${seatGridCols} layout`, 'success');
+      } catch (error) {
+        showNotificationMessage(error.message || 'Failed to regenerate seats', 'error');
+      }
     }
   };
 
@@ -855,6 +972,32 @@ const AdminResourceManagement = () => {
                       placeholder="Describe the resource..."
                     />
                     {formErrors.description && <p className="text-xs text-red-500 mt-1">{formErrors.description}</p>}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">Resource Image URL</label>
+                    <input
+                      type="url"
+                      value={resourceForm.images?.[0] || ''}
+                      onChange={(e) => {
+                        const imageUrl = e.target.value.trim();
+                        setResourceForm({
+                          ...resourceForm,
+                          images: imageUrl ? [imageUrl] : [],
+                        });
+                      }}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="https://example.com/resource-image.jpg"
+                    />
+                    {resourceForm.images?.[0] && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <img
+                          src={resourceForm.images[0]}
+                          alt="Resource preview"
+                          className="h-44 w-full object-cover"
+                        />
+                      </div>
+                    )}
                   </div>
                   
                   <div>
