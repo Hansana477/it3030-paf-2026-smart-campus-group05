@@ -338,7 +338,7 @@ function Login() {
     setLoginOtpSuccess("");
 
     try {
-      const response = await fetch("http://localhost:8080/users/verify-login-otp", {
+      const response = await fetch("http://localhost:8082/users/verify-login-otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -384,7 +384,7 @@ function Login() {
     setLoginOtpSuccess("");
 
     try {
-      const response = await fetch("http://localhost:8080/users/login", {
+      const response = await fetch("http://localhost:8082/users/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

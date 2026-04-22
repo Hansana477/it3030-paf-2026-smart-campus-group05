@@ -424,6 +424,8 @@ public class UserController {
         return new LoginResponse(
                 message,
                 jwtService.generateToken(user),
+                false,
+                null,
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),

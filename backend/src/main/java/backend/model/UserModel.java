@@ -41,11 +41,11 @@ public class UserModel {
     private LocalDateTime passwordResetExpiry;
 
     @JsonIgnore
-    @Column(name = "login_otp_code")
+    @org.springframework.data.mongodb.core.mapping.Field(name = "login_otp_code")
     private String loginOtpCode;
 
     @JsonIgnore
-    @Column(name = "login_otp_expiry")
+    @org.springframework.data.mongodb.core.mapping.Field(name = "login_otp_expiry")
     private LocalDateTime loginOtpExpiry;
 
     public UserModel() {
