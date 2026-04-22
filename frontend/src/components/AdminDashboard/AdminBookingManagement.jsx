@@ -1,24 +1,3 @@
-import React, { useState } from 'react';
-import {
-  Calendar,
-  Clock,
-  Users,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Loader2,
-  X,
-  Phone,
-  Mail,
-  User,
-  BookOpen,
-  Zap,
-  FileText,
-} from 'lucide-react';
 
 // ==============================================
 // DUMMY BOOKING DATA
