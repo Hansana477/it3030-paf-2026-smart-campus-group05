@@ -212,29 +212,29 @@ const StudentMyBookings = () => {
         {message && <p className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{message}</p>}
         {loading && <p className="mt-8 flex items-center gap-2 text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading bookings...</p>}
 
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-600">Booking Calendar</p>
-              <h2 className="mt-1 text-2xl font-bold text-slate-900">{calendarTitle}</h2>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">{calendarTitle}</h2>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => changeMonth(-1)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
                 aria-label="Previous month"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setCalendarDate(new Date())}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Today
               </button>
               <button
                 onClick={() => changeMonth(1)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
                 aria-label="Next month"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -242,10 +242,10 @@ const StudentMyBookings = () => {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase tracking-wide text-slate-400">
+          <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <span key={day}>{day}</span>)}
           </div>
-          <div className="mt-2 grid grid-cols-7 gap-2">
+          <div className="mt-2 grid grid-cols-7 gap-1.5">
             {calendarDays.map(day => {
               const dateKey = toDateKey(day);
               const dayBookings = bookingsByDate[dateKey] || [];
@@ -255,22 +255,22 @@ const StudentMyBookings = () => {
               return (
                 <div
                   key={dateKey}
-                  className={`min-h-[112px] rounded-xl border p-2 text-left ${
+                  className={`min-h-[82px] rounded-lg border p-1.5 text-left ${
                     isCurrentMonth ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 text-slate-300'
                   } ${isToday ? 'ring-2 ring-emerald-400' : ''}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm font-bold ${isCurrentMonth ? 'text-slate-800' : 'text-slate-300'}`}>
+                    <span className={`text-xs font-bold ${isCurrentMonth ? 'text-slate-800' : 'text-slate-300'}`}>
                       {day.getDate()}
                     </span>
                     {dayBookings.length > 0 && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                         {dayBookings.length}
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 space-y-1">
-                    {dayBookings.slice(0, 2).map(booking => (
+                  <div className="mt-1.5 space-y-1">
+                    {dayBookings.slice(0, 1).map(booking => (
                       <div key={booking.id} className="rounded-lg bg-slate-50 px-2 py-1">
                         <p className="flex items-center gap-1 truncate text-[11px] font-bold text-slate-700">
                           <span className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass(booking.status)}`} />
@@ -279,8 +279,8 @@ const StudentMyBookings = () => {
                         <p className="truncate text-[10px] text-slate-500">{booking.startTime} - {booking.endTime}</p>
                       </div>
                     ))}
-                    {dayBookings.length > 2 && (
-                      <p className="text-[11px] font-semibold text-slate-400">+{dayBookings.length - 2} more</p>
+                    {dayBookings.length > 1 && (
+                      <p className="text-[10px] font-semibold text-slate-400">+{dayBookings.length - 1} more</p>
                     )}
                   </div>
                 </div>
