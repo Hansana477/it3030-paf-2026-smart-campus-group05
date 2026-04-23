@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, BarChart3, Calendar, CheckCircle, Clock, Loader2, Mail, PieChart, RefreshCw, Search, TrendingUp, XCircle } from 'lucide-react';
+import { AlertCircle, BarChart3, Calendar, CheckCircle, Clock, Download, Loader2, Mail, PieChart, RefreshCw, Search, TrendingUp, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:8082';
@@ -170,6 +170,137 @@ const AdminBookingManagement = () => {
     }
   };
 
+  const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const downloadPdfReport = () => {
+    const generatedAt = new Date().toLocaleString();
+    const resourceRows = resourceStats.map(resource => {
+      const width = Math.max((resource.total / maxResourceBookings) * 100, 5);
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(resource.name)}</strong>
+            <span>${escapeHtml(resource.location)}</span>
+          </td>
+          <td>${resource.total}</td>
+          <td>${resource.approved}</td>
+          <td>${resource.pending}</td>
+          <td>${resource.rejected}</td>
+          <td>${resource.cancelled}</td>
+          <td><div class="bar"><div style="width:${width}%"></div></div></td>
+        </tr>
+      `;
+    }).join('');
+    const statusRows = statusStats.map(item => {
+      const percentage = totalBookings ? Math.round((item.count / totalBookings) * 100) : 0;
+      return `
+        <tr>
+          <td>${escapeHtml(item.status)}</td>
+          <td>${item.count}</td>
+          <td>${percentage}%</td>
+        </tr>
+      `;
+    }).join('');
+
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) {
+      setMessage('Popup blocked. Please allow popups to download the PDF report.');
+      return;
+    }
+
+    reportWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Smart Campus Booking Report</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 32px; font-family: Arial, sans-serif; color: #0f172a; background: #f8fafc; }
+            .page { max-width: 980px; margin: 0 auto; background: white; padding: 32px; border: 1px solid #e2e8f0; border-radius: 18px; }
+            .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid #10b981; padding-bottom: 18px; }
+            .eyebrow { color: #059669; font-size: 12px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+            h1 { margin: 8px 0 6px; font-size: 30px; }
+            h2 { margin: 28px 0 12px; font-size: 20px; }
+            .muted { color: #64748b; font-size: 13px; }
+            .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
+            .card { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; background: #f8fafc; }
+            .card span { display: block; color: #64748b; font-size: 12px; font-weight: 700; }
+            .card strong { display: block; margin-top: 6px; font-size: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+            th { background: #f1f5f9; color: #475569; text-align: left; padding: 10px; }
+            td { border-bottom: 1px solid #e2e8f0; padding: 10px; vertical-align: middle; }
+            td span { display: block; margin-top: 3px; color: #64748b; font-size: 11px; }
+            .bar { height: 9px; min-width: 120px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+            .bar div { height: 100%; border-radius: 999px; background: #10b981; }
+            .footer { margin-top: 28px; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+            @media print {
+              body { padding: 0; background: white; }
+              .page { border: 0; border-radius: 0; max-width: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <main class="page">
+            <section class="header">
+              <div>
+                <div class="eyebrow">Smart Campus</div>
+                <h1>Booking Report & Analysis</h1>
+                <p class="muted">Generated at ${escapeHtml(generatedAt)}</p>
+              </div>
+              <div>
+                <p class="muted">Top resource</p>
+                <strong>${escapeHtml(topResource?.name || 'No bookings yet')}</strong>
+              </div>
+            </section>
+
+            <section class="cards">
+              <div class="card"><span>Total Bookings</span><strong>${totalBookings}</strong></div>
+              <div class="card"><span>Approved</span><strong>${approvedCount}</strong></div>
+              <div class="card"><span>Approval Rate</span><strong>${approvalRate}%</strong></div>
+              <div class="card"><span>Resources Booked</span><strong>${resourceStats.length}</strong></div>
+            </section>
+
+            <h2>Most Booked Resources</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th>Total</th>
+                  <th>Approved</th>
+                  <th>Pending</th>
+                  <th>Rejected</th>
+                  <th>Cancelled</th>
+                  <th>Chart</th>
+                </tr>
+              </thead>
+              <tbody>${resourceRows || '<tr><td colspan="7">No booking data available.</td></tr>'}</tbody>
+            </table>
+
+            <h2>Status Breakdown</h2>
+            <table>
+              <thead><tr><th>Status</th><th>Count</th><th>Percentage</th></tr></thead>
+              <tbody>${statusRows}</tbody>
+            </table>
+
+            <p class="footer">Smart Campus booking analytics report.</p>
+          </main>
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    reportWindow.document.close();
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
       <section className="mx-auto max-w-7xl">
@@ -210,7 +341,15 @@ const AdminBookingManagement = () => {
               <h2 className="mt-1 text-2xl font-bold text-slate-900">Booking Performance</h2>
               <p className="mt-1 text-sm text-slate-500">Most booked resources and booking status summary.</p>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid gap-3 sm:grid-cols-[auto_auto] lg:grid-cols-[auto_auto_auto_auto] lg:items-center">
+              <button
+                onClick={downloadPdfReport}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </button>
+              <div className="grid grid-cols-3 gap-3 text-center sm:col-span-2 lg:col-span-3">
               <div className="rounded-xl bg-slate-50 px-4 py-3">
                 <p className="text-xs font-semibold text-slate-500">Total</p>
                 <p className="text-2xl font-bold text-slate-900">{totalBookings}</p>
@@ -222,6 +361,7 @@ const AdminBookingManagement = () => {
               <div className="rounded-xl bg-blue-50 px-4 py-3">
                 <p className="text-xs font-semibold text-blue-700">Approval</p>
                 <p className="text-2xl font-bold text-blue-700">{approvalRate}%</p>
+              </div>
               </div>
             </div>
           </div>
