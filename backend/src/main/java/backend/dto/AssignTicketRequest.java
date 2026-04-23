@@ -2,8 +2,13 @@ package backend.dto;
 
 public class AssignTicketRequest {
 
-    private Long technicianId;
+    private String technicianId;
 
-    public Long getTechnicianId() { return technicianId; }
-    public void setTechnicianId(Long technicianId) { this.technicianId = technicianId; }
+    public String getTechnicianId() {
+        return technicianId;
+    }
+
+    public void setTechnicianId(String technicianId) {
+        this.technicianId = technicianId;
+    }
 }

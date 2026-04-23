@@ -1,7 +1,7 @@
 package backend.repository;
 
 import backend.model.TicketCommentModel;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface TicketCommentRepository extends JpaRepository<TicketCommentModel, Long> {
+public interface TicketCommentRepository extends MongoRepository<TicketCommentModel, Long> {
 }

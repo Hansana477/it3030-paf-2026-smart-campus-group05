@@ -2,13 +2,14 @@ package backend.repository;
 
 import backend.model.TicketModel;
 import backend.model.TicketStatus;
-import backend.model.UserModel;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-public interface TicketRepository extends JpaRepository<TicketModel, Long> {
-    List<TicketModel> findByCreatedBy(UserModel createdBy);
-    List<TicketModel> findByAssignedTo(UserModel assignedTo);
+@Repository
+public interface TicketRepository extends MongoRepository<TicketModel, String> {
+    List<TicketModel> findByCreatedByUserId(String createdByUserId);
+    List<TicketModel> findByAssignedToUserId(String assignedToUserId);
     List<TicketModel> findByStatus(TicketStatus status);
 }

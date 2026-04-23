@@ -1,139 +1,250 @@
 package backend.model;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "tickets")
+@Document(collection = "tickets")
 public class TicketModel {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    // ticket creator
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "created_by_user_id", nullable = false)
-    private UserModel createdBy;
+    private String createdByUserId;
+    private String createdByUserName;
 
-    // assigned technician/staff
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "assigned_to_user_id")
-    private UserModel assignedTo;
+    private String assignedToUserId;
+    private String assignedToUserName;
 
-    @Column(name = "resource_name")
+    private String resourceId;
     private String resourceName;
-
-    @Column(name = "location", nullable = false)
     private String location;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "category", nullable = false)
     private TicketCategory category;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false)
     private TicketPriority priority;
+    private TicketStatus status;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private TicketStatus status = TicketStatus.OPEN;
-
-    @Column(name = "description", nullable = false, length = 2000)
     private String description;
-
-    @Column(name = "preferred_contact", nullable = false)
     private String preferredContact;
 
-    @Column(name = "resolution_notes", length = 2000)
     private String resolutionNotes;
-
-    @Column(name = "rejection_reason", length = 1000)
     private String rejectionReason;
+    private String reopenReason;
 
-    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+    private LocalDateTime dueDate;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    private boolean overdue;
+
     private List<TicketAttachmentModel> attachments = new ArrayList<>();
-
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
     private List<TicketCommentModel> comments = new ArrayList<>();
 
     public TicketModel() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.status = TicketStatus.OPEN;
+        this.overdue = false;
     }
 
-    @PreUpdate
-    public void onUpdate() {
+    public void applyDefaults() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+        if (status == null) {
+            status = TicketStatus.OPEN;
+        }
+        if (attachments == null) {
+            attachments = new ArrayList<>();
+        }
+        if (comments == null) {
+            comments = new ArrayList<>();
+        }
+    }
+
+    public void touch() {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void addAttachment(TicketAttachmentModel attachment) {
-        attachments.add(attachment);
-        attachment.setTicket(this);
+    public String getId() {
+        return id;
     }
 
-    public void addComment(TicketCommentModel comment) {
-        comments.add(comment);
-        comment.setTicket(this);
+    public void setId(String id) {
+        this.id = id;
     }
 
-    public Long getId() { return id; }
+    public String getCreatedByUserId() {
+        return createdByUserId;
+    }
 
-    public UserModel getCreatedBy() { return createdBy; }
-    public void setCreatedBy(UserModel createdBy) { this.createdBy = createdBy; }
+    public void setCreatedByUserId(String createdByUserId) {
+        this.createdByUserId = createdByUserId;
+    }
 
-    public UserModel getAssignedTo() { return assignedTo; }
-    public void setAssignedTo(UserModel assignedTo) { this.assignedTo = assignedTo; }
+    public String getCreatedByUserName() {
+        return createdByUserName;
+    }
 
-    public String getResourceName() { return resourceName; }
-    public void setResourceName(String resourceName) { this.resourceName = resourceName; }
+    public void setCreatedByUserName(String createdByUserName) {
+        this.createdByUserName = createdByUserName;
+    }
 
-    public String getLocation() { return location; }
-    public void setLocation(String location) { this.location = location; }
+    public String getAssignedToUserId() {
+        return assignedToUserId;
+    }
 
-    public TicketCategory getCategory() { return category; }
-    public void setCategory(TicketCategory category) { this.category = category; }
+    public void setAssignedToUserId(String assignedToUserId) {
+        this.assignedToUserId = assignedToUserId;
+    }
 
-    public TicketPriority getPriority() { return priority; }
-    public void setPriority(TicketPriority priority) { this.priority = priority; }
+    public String getAssignedToUserName() {
+        return assignedToUserName;
+    }
 
-    public TicketStatus getStatus() { return status; }
-    public void setStatus(TicketStatus status) { this.status = status; }
+    public void setAssignedToUserName(String assignedToUserName) {
+        this.assignedToUserName = assignedToUserName;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public String getResourceId() {
+        return resourceId;
+    }
 
-    public String getPreferredContact() { return preferredContact; }
-    public void setPreferredContact(String preferredContact) { this.preferredContact = preferredContact; }
+    public void setResourceId(String resourceId) {
+        this.resourceId = resourceId;
+    }
 
-    public String getResolutionNotes() { return resolutionNotes; }
-    public void setResolutionNotes(String resolutionNotes) { this.resolutionNotes = resolutionNotes; }
+    public String getResourceName() {
+        return resourceName;
+    }
 
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public void setResourceName(String resourceName) {
+        this.resourceName = resourceName;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getLocation() {
+        return location;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setLocation(String location) {
+        this.location = location;
+    }
 
-    public List<TicketAttachmentModel> getAttachments() { return attachments; }
-    public void setAttachments(List<TicketAttachmentModel> attachments) { this.attachments = attachments; }
+    public TicketCategory getCategory() {
+        return category;
+    }
 
-    public List<TicketCommentModel> getComments() { return comments; }
-    public void setComments(List<TicketCommentModel> comments) { this.comments = comments; }
+    public void setCategory(TicketCategory category) {
+        this.category = category;
+    }
+
+    public TicketPriority getPriority() {
+        return priority;
+    }
+
+    public void setPriority(TicketPriority priority) {
+        this.priority = priority;
+    }
+
+    public TicketStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(TicketStatus status) {
+        this.status = status;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getPreferredContact() {
+        return preferredContact;
+    }
+
+    public void setPreferredContact(String preferredContact) {
+        this.preferredContact = preferredContact;
+    }
+
+    public String getResolutionNotes() {
+        return resolutionNotes;
+    }
+
+    public void setResolutionNotes(String resolutionNotes) {
+        this.resolutionNotes = resolutionNotes;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
+    public String getReopenReason() {
+        return reopenReason;
+    }
+
+    public void setReopenReason(String reopenReason) {
+        this.reopenReason = reopenReason;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDateTime dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public boolean isOverdue() {
+        return overdue;
+    }
+
+    public void setOverdue(boolean overdue) {
+        this.overdue = overdue;
+    }
+
+    public List<TicketAttachmentModel> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<TicketAttachmentModel> attachments) {
+        this.attachments = attachments;
+    }
+
+    public List<TicketCommentModel> getComments() {
+        return comments;
+    }
+
+    public void setComments(List<TicketCommentModel> comments) {
+        this.comments = comments;
+    }
 }
