@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../Header/Header";
+import StudentTicketPanel from "../Tickets/StudentTicketPanel";
 
 function StudentDashboard() {
   const navigate = useNavigate();
@@ -97,6 +98,9 @@ function StudentDashboard() {
             </div>
           </article>
         </section>
+
+        <StudentTicketPanel />
+        
       </section>
     </main>
   );
