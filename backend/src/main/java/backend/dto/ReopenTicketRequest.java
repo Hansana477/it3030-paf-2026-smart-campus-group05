@@ -2,13 +2,13 @@ package backend.dto;
 
 public class ReopenTicketRequest {
 
-    private String reopenReason;
+    private String reason;
 
-    public String getReopenReason() {
-        return reopenReason;
+    public String getReason() {
+        return reason;
     }
 
-    public void setReopenReason(String reopenReason) {
-        this.reopenReason = reopenReason;
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 }

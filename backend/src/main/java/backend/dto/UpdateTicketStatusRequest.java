@@ -1,18 +1,16 @@
 package backend.dto;
 
-import backend.model.TicketStatus;
-
 public class UpdateTicketStatusRequest {
 
-    private TicketStatus status;
+    private String status;
     private String resolutionNotes;
     private String rejectionReason;
 
-    public TicketStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(TicketStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 

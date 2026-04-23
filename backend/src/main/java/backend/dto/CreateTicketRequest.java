@@ -1,17 +1,18 @@
 package backend.dto;
 
-import backend.model.TicketCategory;
-import backend.model.TicketPriority;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CreateTicketRequest {
 
     private String resourceId;
-    private String resourceName;
-    private String location;
-    private TicketCategory category;
+    private String category;
     private String description;
-    private TicketPriority priority;
-    private String preferredContact;
+    private String priority;
+    private String preferredContactName;
+    private String preferredContactEmail;
+    private String preferredContactPhone;
+    private List<String> attachmentUrls = new ArrayList<>();
 
     public String getResourceId() {
         return resourceId;
@@ -21,27 +22,11 @@ public class CreateTicketRequest {
         this.resourceId = resourceId;
     }
 
-    public String getResourceName() {
-        return resourceName;
-    }
-
-    public void setResourceName(String resourceName) {
-        this.resourceName = resourceName;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public TicketCategory getCategory() {
+    public String getCategory() {
         return category;
     }
 
-    public void setCategory(TicketCategory category) {
+    public void setCategory(String category) {
         this.category = category;
     }
 
@@ -53,19 +38,43 @@ public class CreateTicketRequest {
         this.description = description;
     }
 
-    public TicketPriority getPriority() {
+    public String getPriority() {
         return priority;
     }
 
-    public void setPriority(TicketPriority priority) {
+    public void setPriority(String priority) {
         this.priority = priority;
     }
 
-    public String getPreferredContact() {
-        return preferredContact;
+    public String getPreferredContactName() {
+        return preferredContactName;
     }
 
-    public void setPreferredContact(String preferredContact) {
-        this.preferredContact = preferredContact;
+    public void setPreferredContactName(String preferredContactName) {
+        this.preferredContactName = preferredContactName;
+    }
+
+    public String getPreferredContactEmail() {
+        return preferredContactEmail;
+    }
+
+    public void setPreferredContactEmail(String preferredContactEmail) {
+        this.preferredContactEmail = preferredContactEmail;
+    }
+
+    public String getPreferredContactPhone() {
+        return preferredContactPhone;
+    }
+
+    public void setPreferredContactPhone(String preferredContactPhone) {
+        this.preferredContactPhone = preferredContactPhone;
+    }
+
+    public List<String> getAttachmentUrls() {
+        return attachmentUrls;
+    }
+
+    public void setAttachmentUrls(List<String> attachmentUrls) {
+        this.attachmentUrls = attachmentUrls;
     }
 }
