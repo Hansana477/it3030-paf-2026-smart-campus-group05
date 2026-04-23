@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Clock, MapPin, RefreshCw, XCircle, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Download, MapPin, QrCode, RefreshCw, XCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:8082';
@@ -103,6 +103,58 @@ const StudentMyBookings = () => {
     }
   };
 
+  const getQrPayload = (booking) => booking.qrPayload || [
+    'SMART_CAMPUS_BOOKING',
+    `bookingId=${booking.id}`,
+    `code=${booking.verificationCode || ''}`,
+    `resource=${booking.resourceName || ''}`,
+    `student=${booking.requesterEmail || ''}`,
+    `date=${booking.date || ''}`,
+    `time=${booking.startTime || ''}-${booking.endTime || ''}`,
+    `seats=${booking.seatNumbers?.join(',') || ''}`,
+  ].join('|');
+
+  const getQrImageUrl = (booking) => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(getQrPayload(booking))}`;
+  };
+
+  const downloadQr = (booking) => {
+    const qrUrl = getQrImageUrl(booking);
+    const safeName = (booking.resourceName || 'booking').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="680" viewBox="0 0 520 680">
+  <rect width="520" height="680" fill="#ffffff"/>
+  <text x="40" y="52" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">Smart Campus Booking</text>
+  <text x="40" y="86" font-family="Arial, sans-serif" font-size="14" fill="#475569">Show this QR code for booking verification.</text>
+  <image href="${qrUrl}" x="130" y="120" width="260" height="260"/>
+  <text x="40" y="430" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#0f172a">${escapeSvg(booking.resourceName)}</text>
+  <text x="40" y="464" font-family="Arial, sans-serif" font-size="14" fill="#334155">Date: ${escapeSvg(booking.date)}</text>
+  <text x="40" y="492" font-family="Arial, sans-serif" font-size="14" fill="#334155">Time: ${escapeSvg(booking.startTime)} - ${escapeSvg(booking.endTime)}</text>
+  <text x="40" y="520" font-family="Arial, sans-serif" font-size="14" fill="#334155">Seats: ${escapeSvg(booking.seatNumbers?.join(', ') || 'Resource booking')}</text>
+  <text x="40" y="548" font-family="Arial, sans-serif" font-size="14" fill="#334155">Verification: ${escapeSvg(booking.verificationCode || 'Not available')}</text>
+  <text x="40" y="606" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Booking ID: ${escapeSvg(booking.id)}</text>
+</svg>`;
+
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName || 'booking'}-qr.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const escapeSvg = (value) => {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
       <section className="mx-auto max-w-6xl">
@@ -135,11 +187,22 @@ const StudentMyBookings = () => {
                   </div>
                   <p className="mt-3 text-sm text-slate-600">Seats: {booking.seatNumbers?.join(', ') || 'Resource booking'}</p>
                   <p className="mt-1 text-sm text-slate-600">Purpose: {booking.purpose}</p>
+                  {booking.status === 'APPROVED' && (
+                    <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                      <QrCode className="h-4 w-4" />
+                      Verification code: {booking.verificationCode || 'Available'}
+                    </p>
+                  )}
                   {booking.rejectionReason && <p className="mt-2 text-sm text-red-600">Rejected: {booking.rejectionReason}</p>}
                   {booking.cancellationReason && <p className="mt-2 text-sm text-slate-500">Cancelled: {booking.cancellationReason}</p>}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {booking.status === 'APPROVED' && (
+                    <button onClick={() => downloadQr(booking)} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-semibold text-white hover:bg-slate-800">
+                      <Download className="h-4 w-4" /> Download QR
+                    </button>
+                  )}
                   {['PENDING', 'APPROVED'].includes(booking.status) && (
                     <>
                       <button onClick={() => openReschedule(booking)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 font-semibold text-emerald-700 hover:bg-emerald-100">

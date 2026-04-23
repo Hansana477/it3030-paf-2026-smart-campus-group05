@@ -6,6 +6,7 @@ import backend.model.ResourceModel;
 import backend.model.UserModel;
 import backend.repository.BookingRepository;
 import backend.repository.ResourceRepository;
+import backend.service.EmailNotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -25,6 +26,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @CrossOrigin(origins = {
@@ -40,10 +42,16 @@ public class BookingController {
 
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
+    private final EmailNotificationService emailNotificationService;
 
-    public BookingController(BookingRepository bookingRepository, ResourceRepository resourceRepository) {
+    public BookingController(
+            BookingRepository bookingRepository,
+            ResourceRepository resourceRepository,
+            EmailNotificationService emailNotificationService
+    ) {
         this.bookingRepository = bookingRepository;
         this.resourceRepository = resourceRepository;
+        this.emailNotificationService = emailNotificationService;
     }
 
     @GetMapping
@@ -106,8 +114,23 @@ public class BookingController {
         booking.setStatus("APPROVED");
         booking.setApproverId(admin.getId());
         booking.setApproverName(admin.getFullName());
+        applyVerificationDetails(booking);
         booking.applyDefaults();
-        return bookingRepository.save(booking);
+        BookingModel savedBooking = bookingRepository.save(booking);
+        return sendApprovalEmailAndRecord(savedBooking);
+    }
+
+    @PatchMapping("/{id}/send-approval-email")
+    public BookingModel resendApprovalEmail(@PathVariable String id, Authentication authentication) {
+        requireAdmin(authentication);
+        BookingModel booking = getBooking(id);
+        if (!"APPROVED".equals(booking.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only approved bookings can receive verification email");
+        }
+        applyVerificationDetails(booking);
+        booking.applyDefaults();
+        BookingModel savedBooking = bookingRepository.save(booking);
+        return sendApprovalEmailAndRecord(savedBooking);
     }
 
     @PatchMapping("/{id}/reject")
@@ -167,8 +190,20 @@ public class BookingController {
         booking.setRejectionReason(null);
         booking.setApproverId(null);
         booking.setApproverName(null);
+        booking.setVerificationCode(null);
+        booking.setQrPayload(null);
+        booking.setApprovalEmailSent(null);
+        booking.setApprovalEmailStatus(null);
         validateBooking(booking, booking.getId());
         ensureNoConflict(booking, booking.getId());
+        booking.applyDefaults();
+        return bookingRepository.save(booking);
+    }
+
+    private BookingModel sendApprovalEmailAndRecord(BookingModel booking) {
+        boolean emailSent = emailNotificationService.sendBookingApprovedEmail(booking);
+        booking.setApprovalEmailSent(emailSent);
+        booking.setApprovalEmailStatus(emailSent ? "SENT" : "FAILED");
         booking.applyDefaults();
         return bookingRepository.save(booking);
     }
@@ -189,6 +224,27 @@ public class BookingController {
         if (booking.getSeatNumbers() == null) {
             booking.setSeatNumbers(new ArrayList<>());
         }
+    }
+
+    private void applyVerificationDetails(BookingModel booking) {
+        if (booking.getVerificationCode() == null || booking.getVerificationCode().isBlank()) {
+            booking.setVerificationCode("BK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        }
+
+        booking.setQrPayload(String.join("|",
+                "SMART_CAMPUS_BOOKING",
+                "bookingId=" + safeQrValue(booking.getId()),
+                "code=" + safeQrValue(booking.getVerificationCode()),
+                "resource=" + safeQrValue(booking.getResourceName()),
+                "student=" + safeQrValue(booking.getRequesterEmail()),
+                "date=" + safeQrValue(booking.getDate()),
+                "time=" + safeQrValue(booking.getStartTime()) + "-" + safeQrValue(booking.getEndTime()),
+                "seats=" + safeQrValue(booking.getSeatNumbers() == null ? "" : String.join(",", booking.getSeatNumbers()))
+        ));
+    }
+
+    private String safeQrValue(String value) {
+        return value == null ? "" : value.replace("|", "/");
     }
 
     private void validateBooking(BookingModel booking, String currentBookingId) {

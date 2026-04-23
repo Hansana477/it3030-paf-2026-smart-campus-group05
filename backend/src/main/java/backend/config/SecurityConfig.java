@@ -52,6 +52,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/resources/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/users/pending-technicians").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/users/*/approve").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/bookings/*/approve").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/bookings/*/reject").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/bookings/*/send-approval-email").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Calendar, CheckCircle, Clock, Loader2, Search, XCircle } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle, Clock, Loader2, Mail, RefreshCw, Search, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:8082';
@@ -17,6 +17,7 @@ const AdminBookingManagement = () => {
   const [actionType, setActionType] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [emailSendingId, setEmailSendingId] = useState('');
 
   const loadBookings = async () => {
     setLoading(true);
@@ -71,11 +72,40 @@ const AdminBookingManagement = () => {
         throw new Error(data?.message || data?.error || `Failed to ${actionType} booking`);
       }
       setBookings(current => current.map(booking => booking.id === data.id ? data : booking));
+      if (actionType === 'approve' && data.approvalEmailStatus === 'FAILED') {
+        setMessage(`Booking approved, but email failed for ${data.requesterEmail}. Check SMTP settings or use Resend Email.`);
+      }
       setActionBooking(null);
     } catch (error) {
       setMessage(error.message || `Failed to ${actionType} booking`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resendApprovalEmail = async (booking) => {
+    setEmailSendingId(booking.id);
+    setMessage('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/bookings/${booking.id}/send-approval-email`, {
+        method: 'PATCH',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Admin permission denied. Please log out, sign in again with an admin account, then retry.');
+        }
+        throw new Error(data?.message || data?.error || 'Failed to resend approval email');
+      }
+      setBookings(current => current.map(currentBooking => currentBooking.id === data.id ? data : currentBooking));
+      setMessage(data.approvalEmailStatus === 'SENT'
+        ? `Approval email sent to ${data.requesterEmail}.`
+        : `Email still failed for ${data.requesterEmail}. Check backend SMTP logs and mail settings.`);
+    } catch (error) {
+      setMessage(error.message || 'Failed to resend approval email');
+    } finally {
+      setEmailSendingId('');
     }
   };
 
@@ -163,6 +193,14 @@ const AdminBookingManagement = () => {
                   <td className="px-4 py-4 text-slate-600">{booking.seatNumbers?.join(', ') || booking.expectedAttendees}</td>
                   <td className="px-4 py-4">
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClass(booking.status)}`}>{booking.status}</span>
+                    {booking.status === 'APPROVED' && (
+                      <p className={`mt-2 inline-flex items-center gap-1 text-xs font-semibold ${
+                        booking.approvalEmailStatus === 'SENT' ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        <Mail className="h-3.5 w-3.5" />
+                        Email {booking.approvalEmailStatus || 'NOT SENT'}
+                      </p>
+                    )}
                     {booking.rejectionReason && <p className="mt-2 text-xs text-red-600">{booking.rejectionReason}</p>}
                   </td>
                   <td className="px-4 py-4 text-right">
@@ -175,6 +213,15 @@ const AdminBookingManagement = () => {
                           <XCircle className="h-4 w-4" /> Reject
                         </button>
                       </div>
+                    ) : booking.status === 'APPROVED' ? (
+                      <button
+                        onClick={() => resendApprovalEmail(booking)}
+                        disabled={emailSendingId === booking.id}
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                      >
+                        {emailSendingId === booking.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        Resend Email
+                      </button>
                     ) : (
                       <span className="text-slate-400">No action</span>
                     )}

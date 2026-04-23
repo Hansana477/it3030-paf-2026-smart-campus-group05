@@ -1,5 +1,6 @@
 package backend.service;
 
+import backend.model.BookingModel;
 import backend.model.UserModel;
 import jakarta.mail.internet.InternetAddress;
 import org.slf4j.Logger;
@@ -111,7 +112,45 @@ public class EmailNotificationService {
         return sendEmail(user.getEmail(), "Smart Campus login verification code", body);
     }
 
+    public boolean sendBookingApprovedEmail(BookingModel booking) {
+        if (booking == null || !StringUtils.hasText(booking.getRequesterEmail())) {
+            return false;
+        }
+
+        String qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data="
+                + urlEncode(booking.getQrPayload());
+
+        String body = String.format(
+                "<p>Hello %s,</p>"
+                        + "<p>Your booking request has been approved.</p>"
+                        + "<p><strong>Resource:</strong> %s<br/>"
+                        + "<strong>Date:</strong> %s<br/>"
+                        + "<strong>Time:</strong> %s - %s<br/>"
+                        + "<strong>Seats:</strong> %s</p>"
+                        + "<p><strong>Verification code:</strong> %s</p>"
+                        + "<p>Please show this QR code when verifying your booking:</p>"
+                        + "<p><img src=\"%s\" alt=\"Booking verification QR\" width=\"220\" height=\"220\" /></p>"
+                        + "<p>Smart Campus Team</p>",
+                escapeHtml(booking.getRequesterName()),
+                escapeHtml(booking.getResourceName()),
+                escapeHtml(booking.getDate()),
+                escapeHtml(booking.getStartTime()),
+                escapeHtml(booking.getEndTime()),
+                escapeHtml(booking.getSeatNumbers() == null || booking.getSeatNumbers().isEmpty()
+                        ? "Resource booking"
+                        : String.join(", ", booking.getSeatNumbers())),
+                escapeHtml(booking.getVerificationCode()),
+                qrUrl
+        );
+
+        return sendEmail(booking.getRequesterEmail(), "Smart Campus booking approved", body, true);
+    }
+
     private boolean sendEmail(String to, String subject, String body) {
+        return sendEmail(to, subject, body, false);
+    }
+
+    private boolean sendEmail(String to, String subject, String body, boolean html) {
         if (!StringUtils.hasText(mailHost)) {
             logger.info("Skipping email to {} because SMTP host is not configured.", to);
             return false;
@@ -123,8 +162,9 @@ public class EmailNotificationService {
             helper.setFrom(new InternetAddress(mailFrom, mailFromName));
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(body, false);
+            helper.setText(body, html);
             mailSender.send(message);
+            logger.info("Sent email to {} with subject '{}'.", to, subject);
             return true;
         } catch (Exception ex) {
             logger.warn("Failed to send email to {}: {}", to, ex.getMessage());
@@ -134,5 +174,21 @@ public class EmailNotificationService {
 
     private String safeName(UserModel user) {
         return StringUtils.hasText(user.getFullName()) ? user.getFullName() : "User";
+    }
+
+    private String urlEncode(String value) {
+        return java.net.URLEncoder.encode(value == null ? "" : value, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

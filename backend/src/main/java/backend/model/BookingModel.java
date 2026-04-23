@@ -33,6 +33,10 @@ public class BookingModel {
     private String cancellationReason;
     private String approverId;
     private String approverName;
+    private String verificationCode;
+    private String qrPayload;
+    private Boolean approvalEmailSent;
+    private String approvalEmailStatus;
     private LocalDateTime requestedAt;
     private LocalDateTime updatedAt;
 
@@ -114,6 +118,18 @@ public class BookingModel {
 
     public String getApproverName() { return approverName; }
     public void setApproverName(String approverName) { this.approverName = approverName; }
+
+    public String getVerificationCode() { return verificationCode; }
+    public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
+
+    public String getQrPayload() { return qrPayload; }
+    public void setQrPayload(String qrPayload) { this.qrPayload = qrPayload; }
+
+    public Boolean getApprovalEmailSent() { return approvalEmailSent; }
+    public void setApprovalEmailSent(Boolean approvalEmailSent) { this.approvalEmailSent = approvalEmailSent; }
+
+    public String getApprovalEmailStatus() { return approvalEmailStatus; }
+    public void setApprovalEmailStatus(String approvalEmailStatus) { this.approvalEmailStatus = approvalEmailStatus; }
 
     public LocalDateTime getRequestedAt() { return requestedAt; }
     public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
