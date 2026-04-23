@@ -240,7 +240,7 @@ const AdminResourceManagement = () => {
     images: [],
     amenities: [],
     availabilityWindows: [
-      { dayOfWeek: 1, date: '', startTime: '09:00', endTime: '17:00' }
+      { dayOfWeek: 1, startDate: '', endDate: '', startTime: '09:00', endTime: '17:00' }
     ],
   });
   
@@ -431,7 +431,7 @@ const AdminResourceManagement = () => {
       description: '',
       images: [],
       amenities: [],
-      availabilityWindows: [{ dayOfWeek: 1, date: '', startTime: '09:00', endTime: '17:00' }],
+      availabilityWindows: [{ dayOfWeek: 1, startDate: '', endDate: '', startTime: '09:00', endTime: '17:00' }],
     });
     setIsEditing(false);
     setFormErrors({});
@@ -485,6 +485,11 @@ const AdminResourceManagement = () => {
     if (!resourceForm.location) errors.location = 'Location is required';
     if (supportsSeatLayout(resourceForm.type) && seatGridRows * seatGridCols < 1) errors.seatingLayout = 'Seat layout must contain at least 1 seat';
     if (!resourceForm.description?.trim()) errors.description = 'Description is required';
+    (resourceForm.availabilityWindows || []).forEach((window, index) => {
+      if (window.startDate && window.endDate && window.endDate < window.startDate) {
+        errors[`availability-${index}`] = 'End date must be after start date';
+      }
+    });
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -745,13 +750,17 @@ const AdminResourceManagement = () => {
   const addAvailabilityWindow = () => {
     setResourceForm(prev => ({
       ...prev,
-      availabilityWindows: [...(prev.availabilityWindows || []), { dayOfWeek: 1, date: '', startTime: '09:00', endTime: '17:00' }]
+      availabilityWindows: [...(prev.availabilityWindows || []), { dayOfWeek: 1, startDate: '', endDate: '', startTime: '09:00', endTime: '17:00' }]
     }));
   };
 
   const updateAvailabilityWindow = (index, field, value) => {
     const newWindows = [...(resourceForm.availabilityWindows || [])];
-    newWindows[index] = { ...newWindows[index], [field]: value };
+    newWindows[index] = {
+      ...newWindows[index],
+      [field]: value,
+      ...(field === 'startDate' || field === 'endDate' ? { date: '' } : {}),
+    };
     setResourceForm(prev => ({ ...prev, availabilityWindows: newWindows }));
   };
 
@@ -1332,7 +1341,7 @@ const AdminResourceManagement = () => {
               {activeTab === 'availability' && (
                 <div className="space-y-4">
                   {resourceForm.availabilityWindows?.map((window, idx) => (
-                    <div key={idx} className="grid grid-cols-1 gap-3 p-3 bg-slate-50 rounded-lg md:grid-cols-[1fr_1fr_120px_auto_120px_auto] md:items-end">
+                    <div key={idx} className="grid grid-cols-1 gap-3 p-3 bg-slate-50 rounded-lg md:grid-cols-[1fr_1fr_1fr_120px_auto_120px_auto] md:items-end">
                       <div>
                         <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
                         <select
@@ -1346,13 +1355,26 @@ const AdminResourceManagement = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1 block">Date</label>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Start Date</label>
                         <input
                           type="date"
-                          value={window.date || ''}
-                          onChange={(e) => updateAvailabilityWindow(idx, 'date', e.target.value)}
+                          value={window.startDate || window.date || ''}
+                          onChange={(e) => updateAvailabilityWindow(idx, 'startDate', e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg bg-white"
                         />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">End Date</label>
+                        <input
+                          type="date"
+                          value={window.endDate || window.date || ''}
+                          min={window.startDate || window.date || undefined}
+                          onChange={(e) => updateAvailabilityWindow(idx, 'endDate', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg bg-white"
+                        />
+                        {formErrors[`availability-${idx}`] && (
+                          <p className="mt-1 text-xs text-red-500">{formErrors[`availability-${idx}`]}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-500 mb-1 block">Start</label>

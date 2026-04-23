@@ -230,9 +230,24 @@ const StudentResourceView = () => {
       year: 'numeric',
     });
   };
+  const getAvailabilityDateRange = (window) => {
+    const startDate = window.startDate || window.date;
+    const endDate = window.endDate || window.date;
+    if (!startDate && !endDate) return null;
+    if (startDate && endDate && startDate !== endDate) {
+      return `${formatAvailabilityDate(startDate)} - ${formatAvailabilityDate(endDate)}`;
+    }
+    return formatAvailabilityDate(startDate || endDate);
+  };
+  const isTodayInAvailabilityWindow = (window) => {
+    const startDate = window.startDate || window.date;
+    const endDate = window.endDate || window.date;
+    const matchesDay = window.dayOfWeek === today;
+    const matchesDate = (!startDate || todayDate >= startDate) && (!endDate || todayDate <= endDate);
+    return matchesDay && matchesDate;
+  };
   const getTodayHours = (availabilityWindows) => {
-    const todayWindow = availabilityWindows?.find(w => w.date === todayDate) ||
-                        availabilityWindows?.find(w => !w.date && w.dayOfWeek === today);
+    const todayWindow = availabilityWindows?.find(isTodayInAvailabilityWindow);
     if (todayWindow) {
       return `${todayWindow.startTime} - ${todayWindow.endTime}`;
     }
@@ -622,8 +637,8 @@ const StudentResourceView = () => {
                     {selectedResource.availabilityWindows?.map((window, idx) => (
                       <div key={idx} className="flex flex-col gap-1 p-2 bg-white rounded-lg border border-slate-200">
                         <span className="text-sm font-medium text-slate-700">{daysOfWeek[window.dayOfWeek]}</span>
-                        {window.date && (
-                          <span className="text-xs text-slate-400">{formatAvailabilityDate(window.date)}</span>
+                        {getAvailabilityDateRange(window) && (
+                          <span className="text-xs text-slate-400">{getAvailabilityDateRange(window)}</span>
                         )}
                         <span className="text-sm text-slate-500">{window.startTime} - {window.endTime}</span>
                       </div>
