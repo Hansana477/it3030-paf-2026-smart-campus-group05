@@ -56,7 +56,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/uploads/**").authenticated()
 
                         .requestMatchers(HttpMethod.POST, "/tickets").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/tickets/images").authenticated()
                         .requestMatchers(HttpMethod.GET, "/tickets/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/tickets/*/comments").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/tickets/*/comments/*").authenticated()

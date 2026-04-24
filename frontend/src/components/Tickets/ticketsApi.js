@@ -55,11 +55,15 @@ export async function fetchTicketById(ticketId) {
   return parseResponse(response, "Failed to load ticket details.");
 }
 
-export async function createTicket(payload) {
+export async function createTicket(payload, images = []) {
+  const formData = new FormData();
+  formData.append("ticket", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+  images.forEach((image) => formData.append("images", image));
+
   const response = await fetch(`${API_BASE_URL}/tickets`, {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
+    headers: getAuthHeaders(false),
+    body: formData,
   });
 
   return parseResponse(response, "Failed to create ticket.");
@@ -122,19 +126,6 @@ export async function deleteComment(ticketId, commentId) {
   });
 
   return parseResponse(response, "Failed to delete comment.");
-}
-
-export async function uploadTicketImage(file) {
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const response = await fetch(`${API_BASE_URL}/tickets/images`, {
-    method: "POST",
-    headers: getAuthHeaders(false),
-    body: formData,
-  });
-
-  return parseResponse(response, "Failed to upload image.");
 }
 
 export async function fetchResources() {

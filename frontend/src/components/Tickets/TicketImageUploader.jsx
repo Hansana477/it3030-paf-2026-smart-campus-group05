@@ -1,16 +1,33 @@
-import React, { useMemo, useState } from "react";
-import { ImagePlus, Loader2, Trash2, UploadCloud } from "lucide-react";
-import { uploadTicketImage } from "./ticketsApi";
+import React, { useEffect, useState } from "react";
+import { ImagePlus, Trash2, UploadCloud } from "lucide-react";
+
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
 
 function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
-  const [isUploading, setIsUploading] = useState(false);
+  const [previewItems, setPreviewItems] = useState([]);
   const [error, setError] = useState("");
 
   const canUploadMore = value.length < maxImages;
 
-  const previewItems = useMemo(() => value.map((url, index) => ({ id: `${url}-${index}`, url })), [value]);
+  useEffect(() => {
+    const items = (value || []).map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${index}`,
+      url: URL.createObjectURL(file),
+    }));
 
-  const handleFilesSelected = async (event) => {
+    setPreviewItems(items);
+
+    return () => {
+      items.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [value]);
+
+  const handleFilesSelected = (event) => {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
 
@@ -23,27 +40,19 @@ function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
       return;
     }
 
-    setIsUploading(true);
-    setError("");
-
-    try {
-      const uploadedUrls = [];
-      for (const file of files) {
-        const uploaded = await uploadTicketImage(file);
-        uploadedUrls.push(uploaded.url);
-      }
-
-      onChange([...(value || []), ...uploadedUrls]);
-    } catch (uploadError) {
-      setError(uploadError.message || "Image upload failed.");
-    } finally {
-      setIsUploading(false);
+    const invalidFile = files.find((file) => !ALLOWED_FILE_TYPES.includes(file.type));
+    if (invalidFile) {
+      setError("Only JPG, PNG, GIF, and WEBP images are allowed.");
+      return;
     }
+
+    setError("");
+    onChange([...(value || []), ...files]);
   };
 
-  const handleRemoveImage = (urlToRemove) => {
+  const handleRemoveImage = (indexToRemove) => {
     setError("");
-    onChange((value || []).filter((url) => url !== urlToRemove));
+    onChange((value || []).filter((_, index) => index !== indexToRemove));
   };
 
   return (
@@ -61,14 +70,14 @@ function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
               : "cursor-not-allowed bg-slate-200 text-slate-500"
           }`}
         >
-          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-          {isUploading ? "Uploading..." : "Add Images"}
+          <UploadCloud className="h-4 w-4" />
+          Add Images
           <input
             type="file"
             accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
             multiple
             className="hidden"
-            disabled={!canUploadMore || isUploading}
+            disabled={!canUploadMore}
             onChange={handleFilesSelected}
           />
         </label>
@@ -89,12 +98,12 @@ function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {previewItems.map((item) => (
+          {previewItems.map((item, index) => (
             <div key={item.id} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <img src={item.url} alt="Ticket evidence" className="h-40 w-full object-cover" />
               <button
                 type="button"
-                onClick={() => handleRemoveImage(item.url)}
+                onClick={() => handleRemoveImage(index)}
                 className="absolute right-3 top-3 inline-flex items-center justify-center rounded-full bg-white/95 p-2 text-rose-600 shadow transition hover:scale-105"
                 title="Remove image"
               >

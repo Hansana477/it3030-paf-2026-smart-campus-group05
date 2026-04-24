@@ -26,13 +26,13 @@ function createInitialForm(user) {
     preferredContactName: user?.fullName || "",
     preferredContactEmail: user?.email || "",
     preferredContactPhone: user?.phone || "",
-    attachmentUrls: [],
   };
 }
 
 function TicketFormModal({ open, onClose, currentUser, onTicketCreated }) {
   const [resources, setResources] = useState([]);
   const [formData, setFormData] = useState(() => createInitialForm(currentUser));
+  const [images, setImages] = useState([]);
   const [isLoadingResources, setIsLoadingResources] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +43,7 @@ function TicketFormModal({ open, onClose, currentUser, onTicketCreated }) {
     }
 
     setFormData(createInitialForm(currentUser));
+    setImages([]);
     setError("");
     setIsLoadingResources(true);
 
@@ -116,7 +117,7 @@ function TicketFormModal({ open, onClose, currentUser, onTicketCreated }) {
         preferredContactName: formData.preferredContactName.trim(),
         preferredContactEmail: formData.preferredContactEmail.trim(),
         preferredContactPhone: formData.preferredContactPhone.trim(),
-      });
+      }, images);
 
       onTicketCreated(created);
       onClose();
@@ -267,13 +268,8 @@ function TicketFormModal({ open, onClose, currentUser, onTicketCreated }) {
           </div>
 
           <TicketImageUploader
-            value={formData.attachmentUrls}
-            onChange={(nextValue) =>
-              setFormData((current) => ({
-                ...current,
-                attachmentUrls: nextValue,
-              }))
-            }
+            value={images}
+            onChange={setImages}
           />
 
           <div className="flex justify-end gap-3 pt-2">

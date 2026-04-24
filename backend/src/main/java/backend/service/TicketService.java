@@ -14,20 +14,37 @@ import backend.model.UserModel;
 import backend.repository.ResourceRepository;
 import backend.repository.TicketRepository;
 import backend.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class TicketService {
+
+    private static final Path IMAGE_UPLOAD_DIR = Path.of("uploads", "ticket-images");
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            MediaType.IMAGE_JPEG_VALUE,
+            MediaType.IMAGE_PNG_VALUE,
+            MediaType.IMAGE_GIF_VALUE,
+            "image/webp"
+    );
 
     private static final List<String> ALLOWED_CATEGORIES = List.of(
             "ELECTRICAL",
@@ -70,7 +87,12 @@ public class TicketService {
         this.userRepository = userRepository;
     }
 
-    public TicketModel createTicket(CreateTicketRequest request, UserModel actor) {
+    public TicketModel createTicket(
+            CreateTicketRequest request,
+            List<MultipartFile> images,
+            UserModel actor,
+            HttpServletRequest httpRequest
+    ) throws IOException {
         requireAuthenticated(actor);
 
         if (request == null) {
@@ -93,7 +115,7 @@ public class TicketService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description must be at least 10 characters long");
         }
 
-        List<String> attachmentUrls = sanitizeAttachmentUrls(request.getAttachmentUrls());
+        List<String> attachmentUrls = buildAttachmentUrls(request.getAttachmentUrls(), images, httpRequest);
 
         String preferredContactName = firstNonBlank(request.getPreferredContactName(), actor.getFullName());
         String preferredContactEmail = firstNonBlank(request.getPreferredContactEmail(), actor.getEmail());
@@ -595,6 +617,74 @@ public class TicketService {
         }
 
         return sanitized;
+    }
+
+    private List<String> buildAttachmentUrls(
+            List<String> existingAttachmentUrls,
+            List<MultipartFile> images,
+            HttpServletRequest httpRequest
+    ) throws IOException {
+        List<String> attachmentUrls = new ArrayList<>(sanitizeAttachmentUrls(existingAttachmentUrls));
+
+        if (images == null || images.isEmpty()) {
+            return attachmentUrls;
+        }
+
+        List<MultipartFile> filesToStore = images.stream()
+                .filter(image -> image != null && !image.isEmpty())
+                .collect(Collectors.toList());
+
+        if (attachmentUrls.size() + filesToStore.size() > 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A ticket can include up to 3 image attachments");
+        }
+
+        if (filesToStore.isEmpty()) {
+            return attachmentUrls;
+        }
+
+        Files.createDirectories(IMAGE_UPLOAD_DIR);
+
+        for (MultipartFile image : filesToStore) {
+            String contentType = image.getContentType();
+            if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Only JPG, PNG, GIF, and WEBP images are allowed"
+                );
+            }
+
+            String extension = getExtension(image.getOriginalFilename(), contentType);
+            String fileName = UUID.randomUUID() + extension;
+            Path target = IMAGE_UPLOAD_DIR.resolve(fileName).normalize();
+
+            Files.copy(image.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            attachmentUrls.add(
+                    httpRequest.getScheme() + "://" + httpRequest.getServerName() + ":" + httpRequest.getServerPort()
+                            + "/uploads/ticket-images/" + fileName
+            );
+        }
+
+        return attachmentUrls;
+    }
+
+    private String getExtension(String originalFilename, String contentType) {
+        if (originalFilename != null) {
+            int dotIndex = originalFilename.lastIndexOf('.');
+            if (dotIndex >= 0 && dotIndex < originalFilename.length() - 1) {
+                String extension = originalFilename.substring(dotIndex).toLowerCase(Locale.ROOT);
+                if (extension.matches("\\.(jpg|jpeg|png|gif|webp)")) {
+                    return extension;
+                }
+            }
+        }
+
+        return switch (contentType) {
+            case MediaType.IMAGE_PNG_VALUE -> ".png";
+            case MediaType.IMAGE_GIF_VALUE -> ".gif";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
     }
 
     private String generateTicketNumber() {
