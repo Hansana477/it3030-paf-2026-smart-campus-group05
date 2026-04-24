@@ -8,6 +8,8 @@ const ALLOWED_FILE_TYPES = [
   "image/webp",
 ];
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
   const [previewItems, setPreviewItems] = useState([]);
   const [error, setError] = useState("");
@@ -43,6 +45,12 @@ function TicketImageUploader({ value = [], onChange, maxImages = 3 }) {
     const invalidFile = files.find((file) => !ALLOWED_FILE_TYPES.includes(file.type));
     if (invalidFile) {
       setError("Only JPG, PNG, GIF, and WEBP images are allowed.");
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > MAX_FILE_SIZE_BYTES);
+    if (oversizedFile) {
+      setError("Each image must be 5MB or smaller.");
       return;
     }
 

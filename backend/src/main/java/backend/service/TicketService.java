@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 public class TicketService {
 
     private static final Path IMAGE_UPLOAD_DIR = Path.of("uploads", "ticket-images");
+    private static final long MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             MediaType.IMAGE_JPEG_VALUE,
             MediaType.IMAGE_PNG_VALUE,
@@ -683,6 +684,13 @@ public class TicketService {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Only JPG, PNG, GIF, and WEBP images are allowed"
+                );
+            }
+
+            if (image.getSize() > MAX_IMAGE_SIZE_BYTES) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Each image must be 5MB or smaller"
                 );
             }
 

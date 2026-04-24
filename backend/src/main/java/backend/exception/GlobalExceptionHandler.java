@@ -41,7 +41,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class})
     public ResponseEntity<Map<String, Object>> handleMultipartExceptions(Exception exception) {
-        return buildResponse(HttpStatus.BAD_REQUEST, exception.getMessage());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Upload failed. Each image must be 5MB or smaller, and a ticket can include up to 3 images."
+        );
     }
 
     @ExceptionHandler(Exception.class)

@@ -175,7 +175,6 @@ function TechnicianTicketPanel() {
     <>
       <section className="rounded-[30px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Module C</p>
           <h2 className="mt-3 text-3xl font-extrabold text-primary">Technician Ticket Workspace</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-500">
             View assigned incidents, claim unassigned open work, update progress, add resolution notes, and communicate with users.

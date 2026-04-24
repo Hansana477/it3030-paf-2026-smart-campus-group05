@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CheckCheck,
+  Download,
   Eye,
   Loader2,
   RefreshCw,
@@ -216,11 +217,65 @@ function AdminTicketPanel({ technicians = [] }) {
     rejected: tickets.filter((ticket) => ticket.status === "REJECTED").length,
   };
 
+  const handleDownloadTicketReport = () => {
+    const reportRows = filteredTickets.map((ticket) => ({
+      "Ticket Number": ticket.ticketNumber ?? "",
+      Resource: ticket.resourceName ?? "",
+      Location: ticket.location ?? "",
+      Category: ticket.category ?? "",
+      Priority: ticket.priority ?? "",
+      Status: ticket.status ?? "",
+      "Reported By": ticket.createdByUserName ?? "",
+      "Reporter Email": ticket.createdByUserEmail ?? "",
+      "Assigned Technician": ticket.assignedTechnicianName ?? "Not assigned",
+      "Created At": ticket.createdAt ?? "",
+      "Updated At": ticket.updatedAt ?? "",
+      "Resolved At": ticket.resolvedAt ?? "",
+      "Closed At": ticket.closedAt ?? "",
+      "Reopened Count": ticket.reopenedCount ?? 0,
+      Description: ticket.description ?? "",
+      "Resolution Notes": ticket.resolutionNotes ?? "",
+      "Rejection Reason": ticket.rejectionReason ?? "",
+    }));
+
+    if (!reportRows.length) {
+      setPanelError("There are no tickets in the selected filter to download.");
+      return;
+    }
+
+    const headers = Object.keys(reportRows[0]);
+
+    const csvContent = [
+      headers.join(","),
+      ...reportRows.map((row) =>
+        headers
+          .map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`)
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const reportLabel =
+      statusFilter === "ALL"
+        ? "all-ticket-report"
+        : `${statusFilter.toLowerCase()}-ticket-report`;
+
+    link.href = downloadUrl;
+    link.setAttribute("download", `${reportLabel}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  };
+
   return (
     <>
       <section className="rounded-[30px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Module C</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">SERVICE DESK</p>
           <h2 className="mt-3 text-3xl font-extrabold text-primary">Admin Ticket Control Center</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-500">
             Monitor all maintenance incidents, assign technicians, reject invalid requests, close resolved work, and review comment activity.
@@ -251,14 +306,25 @@ function AdminTicketPanel({ technicians = [] }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-extrabold text-primary">All Incident Tickets</h3>
 
-              <button
-                type="button"
-                onClick={loadAll}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadTicketReport}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Download CSV
+                </button>
+
+                <button
+                  type="button"
+                  onClick={loadAll}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {panelError ? (
