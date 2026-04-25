@@ -12,6 +12,8 @@ import StudentResourceView from "./components/StudentDashboard/StudentResourceVi
 import StudentMyBookings from "./components/StudentDashboard/StudentMyBookings";
 import PublicRoute from "./components/PublicRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
+import StudentCreateTicketPage from "./components/Tickets/StudentCreateTicketPage";
+import StudentTrackTicketsPage from "./components/Tickets/StudentTrackTicketsPage";
 
 function App() {
   return (
