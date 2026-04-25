@@ -76,7 +76,9 @@ public class ResourceController {
         validateResource(updatedResource);
         updatedResource.setId(id);
         updatedResource.applyDefaults();
-        return resourceRepository.save(updatedResource);
+        ResourceModel savedResource = resourceRepository.save(updatedResource);
+        notificationService.notifyResourceUpdated(savedResource);
+        return savedResource;
     }
 
     @DeleteMapping("/{id}")
@@ -85,6 +87,7 @@ public class ResourceController {
                 .orElseThrow(() -> new UserNotFoundException("Could not find resource with id " + id));
 
         resourceRepository.delete(resource);
+        notificationService.notifyResourceDeleted(resource);
         return Map.of("message", "Resource deleted successfully");
     }
 

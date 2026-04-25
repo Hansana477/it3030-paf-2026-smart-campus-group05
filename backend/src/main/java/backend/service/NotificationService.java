@@ -8,15 +8,26 @@ import backend.model.UserModel;
 import backend.repository.NotificationRepository;
 import backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class NotificationService {
 
+    private static final long SSE_TIMEOUT_MS = 30L * 60L * 1000L;
+
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailNotificationService emailNotificationService;
+    private final Map<String, CopyOnWriteArrayList<SseEmitter>> emittersByUserId = new ConcurrentHashMap<>();
 
     public NotificationService(
             NotificationRepository notificationRepository,
@@ -36,6 +47,7 @@ public class NotificationService {
         notification.setType(type);
         notification.setRead(false);
         NotificationModel savedNotification = notificationRepository.save(notification);
+        broadcastNotificationCreated(savedNotification);
         emailNotificationService.sendNotificationEmail(recipient, title, message, type);
         return savedNotification;
     }
@@ -47,7 +59,9 @@ public class NotificationService {
         notification.setMessage(message);
         notification.setType(type);
         notification.setRead(false);
-        return notificationRepository.save(notification);
+        NotificationModel savedNotification = notificationRepository.save(notification);
+        broadcastNotificationCreated(savedNotification);
+        return savedNotification;
     }
 
     public void notifyWelcome(UserModel user) {
@@ -63,15 +77,41 @@ public class NotificationService {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
+    public SseEmitter subscribe(UserModel user) {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        emittersByUserId.computeIfAbsent(user.getId(), ignored -> new CopyOnWriteArrayList<>()).add(emitter);
+
+        emitter.onCompletion(() -> removeEmitter(user.getId(), emitter));
+        emitter.onTimeout(() -> removeEmitter(user.getId(), emitter));
+        emitter.onError(error -> removeEmitter(user.getId(), emitter));
+
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("connected")
+                    .data(Map.of(
+                            "message", "Notification stream connected",
+                            "unreadCount", notificationRepository.findByRecipientIdAndReadFalse(user.getId()).size()
+                    )));
+        } catch (IOException exception) {
+            removeEmitter(user.getId(), emitter);
+            emitter.completeWithError(exception);
+        }
+
+        return emitter;
+    }
+
     public NotificationModel markAsRead(NotificationModel notification) {
         notification.setRead(true);
-        return notificationRepository.save(notification);
+        NotificationModel savedNotification = notificationRepository.save(notification);
+        broadcastNotificationUpdated(savedNotification);
+        return savedNotification;
     }
 
     public void markAllAsRead(String userId) {
         List<NotificationModel> unread = notificationRepository.findByRecipientIdAndReadFalse(userId);
         unread.forEach(n -> n.setRead(true));
         notificationRepository.saveAll(unread);
+        broadcastAllNotificationsRead(userId, unread);
     }
 
     public void notifyAdminsOfPendingTechnician(UserModel technician) {
@@ -238,6 +278,15 @@ public class NotificationService {
         );
     }
 
+    public void notifyTicketAssignedToTechnician(TicketModel ticket, UserModel technician, UserModel assignedBy) {
+        createNotification(
+                technician,
+                "New assigned ticket: " + ticket.getTicketNumber(),
+                "You have been assigned to " + ticket.getResourceName() + " by " + safeName(assignedBy) + ".",
+                "TECHNICIAN_TICKET_ASSIGNED"
+        );
+    }
+
     public void notifyTicketReopened(TicketModel ticket, UserModel student) {
         // Notify admins
         List<UserModel> admins = userRepository.findByRole("ADMIN");
@@ -288,6 +337,47 @@ public class NotificationService {
         }
     }
 
+    public void notifyTicketCommentAdded(TicketModel ticket, UserModel commenter) {
+        Set<String> notifiedUserIds = new HashSet<>();
+
+        userRepository.findById(ticket.getCreatedByUserId()).ifPresent(creator -> {
+            if (!sameUser(creator, commenter)) {
+                createNotification(
+                        creator,
+                        "New ticket comment: " + ticket.getTicketNumber(),
+                        safeName(commenter) + " added a new comment to your ticket for " + ticket.getResourceName() + ".",
+                        "TICKET_COMMENT_ADDED"
+                );
+                notifiedUserIds.add(creator.getId());
+            }
+        });
+
+        if (ticket.getAssignedTechnicianId() != null) {
+            userRepository.findById(ticket.getAssignedTechnicianId()).ifPresent(technician -> {
+                if (!sameUser(technician, commenter) && !notifiedUserIds.contains(technician.getId())) {
+                    createNotification(
+                            technician,
+                            "New ticket comment: " + ticket.getTicketNumber(),
+                            safeName(commenter) + " added a new comment on the ticket assigned to you.",
+                            "TECHNICIAN_TICKET_COMMENT_ADDED"
+                    );
+                    notifiedUserIds.add(technician.getId());
+                }
+            });
+        }
+
+        for (UserModel admin : userRepository.findByRole("ADMIN")) {
+            if (!sameUser(admin, commenter) && !notifiedUserIds.contains(admin.getId())) {
+                createSilentNotification(
+                        admin,
+                        "Ticket comment added: " + ticket.getTicketNumber(),
+                        safeName(commenter) + " commented on " + ticket.getResourceName() + ".",
+                        "ADMIN_TICKET_COMMENT_ADDED"
+                );
+            }
+        }
+    }
+
     public void notifyResourceCreated(ResourceModel resource) {
         List<UserModel> users = userRepository.findAll();
         for (UserModel user : users) {
@@ -298,5 +388,108 @@ public class NotificationService {
                     "RESOURCE_CREATED"
             );
         }
+    }
+
+    public void notifyResourceUpdated(ResourceModel resource) {
+        for (UserModel user : userRepository.findAll()) {
+            createSilentNotification(
+                    user,
+                    "Resource updated",
+                    "The resource '" + resource.getName() + "' was updated. Review the latest details before your next booking or support request.",
+                    "RESOURCE_UPDATED"
+            );
+        }
+    }
+
+    public void notifyResourceDeleted(ResourceModel resource) {
+        for (UserModel user : userRepository.findAll()) {
+            createSilentNotification(
+                    user,
+                    "Resource removed",
+                    "The resource '" + resource.getName() + "' is no longer available in Smart Campus.",
+                    "RESOURCE_DELETED"
+            );
+        }
+    }
+
+    private void broadcastNotificationCreated(NotificationModel notification) {
+        broadcastToUser(
+                notification.getRecipient().getId(),
+                "notification-created",
+                Map.of("notification", notification)
+        );
+    }
+
+    private void broadcastNotificationUpdated(NotificationModel notification) {
+        broadcastToUser(
+                notification.getRecipient().getId(),
+                "notification-updated",
+                Map.of("notification", notification)
+        );
+    }
+
+    private void broadcastAllNotificationsRead(String userId, List<NotificationModel> notifications) {
+        if (notifications == null || notifications.isEmpty()) {
+            return;
+        }
+
+        List<String> notificationIds = new ArrayList<>();
+        for (NotificationModel notification : notifications) {
+            notificationIds.add(notification.getId());
+        }
+
+        broadcastToUser(
+                userId,
+                "notifications-read-all",
+                Map.of("notificationIds", notificationIds)
+        );
+    }
+
+    private void broadcastToUser(String userId, String eventName, Object payload) {
+        if (userId == null) {
+            return;
+        }
+
+        CopyOnWriteArrayList<SseEmitter> emitters = emittersByUserId.get(userId);
+        if (emitters == null || emitters.isEmpty()) {
+            return;
+        }
+
+        List<SseEmitter> staleEmitters = new ArrayList<>();
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event().name(eventName).data(payload));
+            } catch (IOException exception) {
+                staleEmitters.add(emitter);
+                emitter.completeWithError(exception);
+            }
+        }
+
+        staleEmitters.forEach(stale -> removeEmitter(userId, stale));
+    }
+
+    private void removeEmitter(String userId, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> emitters = emittersByUserId.get(userId);
+        if (emitters == null) {
+            return;
+        }
+
+        emitters.remove(emitter);
+        if (emitters.isEmpty()) {
+            emittersByUserId.remove(userId);
+        }
+    }
+
+    private boolean sameUser(UserModel left, UserModel right) {
+        if (left == null || right == null || left.getId() == null || right.getId() == null) {
+            return false;
+        }
+        return left.getId().equals(right.getId());
+    }
+
+    private String safeName(UserModel user) {
+        return user == null || user.getFullName() == null || user.getFullName().isBlank()
+                ? "Someone"
+                : user.getFullName();
     }
 }

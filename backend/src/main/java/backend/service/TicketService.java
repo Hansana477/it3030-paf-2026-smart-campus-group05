@@ -258,6 +258,7 @@ public class TicketService {
         if (creator != null) {
             notificationService.notifyTicketAssigned(savedTicket, creator, technician.getFullName());
         }
+        notificationService.notifyTicketAssignedToTechnician(savedTicket, technician, actor);
         return savedTicket;
     }
 
@@ -455,7 +456,9 @@ public class TicketService {
                 "Comment added by " + safe(actor.getFullName())
         );
 
-        return ticketRepository.save(ticket);
+        TicketModel savedTicket = ticketRepository.save(ticket);
+        notificationService.notifyTicketCommentAdded(savedTicket, actor);
+        return savedTicket;
     }
 
     public TicketModel updateComment(String ticketId, String commentId, UpdateCommentRequest request, UserModel actor) {
