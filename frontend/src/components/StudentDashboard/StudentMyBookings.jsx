@@ -8,6 +8,8 @@ const StudentMyBookings = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const [bookings, setBookings] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [resourcesLoaded, setResourcesLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [rescheduleBooking, setRescheduleBooking] = useState(null);
@@ -30,6 +32,16 @@ const StudentMyBookings = () => {
         throw new Error(data?.message || data?.error || 'Failed to load bookings');
       }
       setBookings(Array.isArray(data) ? data : []);
+
+      const resourcesResponse = await fetch(`${API_BASE_URL}/resources`);
+      const resourcesData = await resourcesResponse.json().catch(() => []);
+      if (resourcesResponse.ok) {
+        setResources(Array.isArray(resourcesData) ? resourcesData : []);
+        setResourcesLoaded(true);
+      } else {
+        setResources([]);
+        setResourcesLoaded(false);
+      }
     } catch (error) {
       setMessage(error.message || 'Failed to load bookings');
     } finally {
@@ -170,6 +182,38 @@ const StudentMyBookings = () => {
     }
   };
 
+  const resourcesById = resources.reduce((map, resource) => {
+    if (resource.id) {
+      map[resource.id] = resource;
+    }
+    return map;
+  }, {});
+
+  const getResourceAvailability = (booking) => {
+    if (!resourcesLoaded || !booking.resourceId) {
+      return { available: true };
+    }
+
+    const resource = resourcesById[booking.resourceId];
+    if (!resource) {
+      return {
+        available: false,
+        label: 'Resource not available',
+        detail: 'This booked resource was deleted or is no longer listed.',
+      };
+    }
+
+    if (resource.status !== 'ACTIVE') {
+      return {
+        available: false,
+        label: 'Resource not available',
+        detail: `Current resource status: ${resource.status?.replace('_', ' ') || 'Unavailable'}.`,
+      };
+    }
+
+    return { available: true };
+  };
+
   const toDateKey = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -277,10 +321,10 @@ const StudentMyBookings = () => {
         {message && <p className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{message}</p>}
         {loading && <p className="mt-8 flex items-center gap-2 text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading bookings...</p>}
 
-        <section className="mt-6 rounded-2xl border border-white/10 bg-primary p-5 text-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-accent">Privacy & Policy</p>
-          <h2 className="mt-1 text-xl font-bold text-white">Cancellation Policy</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+        <section className="mt-6 rounded-2xl border border-secondary bg-secondary p-5 text-primary shadow-[0_18px_50px_rgba(34,197,94,0.2)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary/70">Privacy & Policy</p>
+          <h2 className="mt-1 text-xl font-bold text-primary">Cancellation Policy</h2>
+          <p className="mt-2 text-sm leading-6 text-primary/80">
             Students can cancel a pending or approved booking only if the cancellation is made at least
             <strong> 3 hours before </strong>
             the booking start time. If the booking starts in less than 3 hours, contact an admin for help.
@@ -374,13 +418,21 @@ const StudentMyBookings = () => {
         </section>
 
         <div className="mt-8 grid gap-4">
-          {bookings.map(booking => (
+          {bookings.map(booking => {
+            const resourceAvailability = getResourceAvailability(booking);
+
+            return (
             <article key={booking.id} className="rounded-2xl border border-primary bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-xl font-bold text-slate-900">{booking.resourceName}</h2>
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClass(booking.status)}`}>{booking.status}</span>
+                    {!resourceAvailability.available && (
+                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                        {resourceAvailability.label}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
                     <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {booking.location}</span>
@@ -389,8 +441,13 @@ const StudentMyBookings = () => {
                   </div>
                   <p className="mt-3 text-sm text-slate-600">Seats: {booking.seatNumbers?.join(', ') || 'Resource booking'}</p>
                   <p className="mt-1 text-sm text-slate-600">Purpose: {booking.purpose}</p>
-                  {booking.status === 'APPROVED' && (
-                    <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                  {!resourceAvailability.available && (
+                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      {resourceAvailability.detail}
+                    </p>
+                  )}
+                  {booking.status === 'APPROVED' && resourceAvailability.available && (
+                    <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-primary">
                       <QrCode className="h-4 w-4" />
                       Verification code: {booking.verificationCode || 'Available'}
                     </p>
@@ -400,12 +457,12 @@ const StudentMyBookings = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {booking.status === 'APPROVED' && (
+                  {booking.status === 'APPROVED' && resourceAvailability.available && (
                     <button onClick={() => downloadQr(booking)} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 font-semibold text-white hover:bg-slate-800">
                       <Download className="h-4 w-4" /> Download QR
                     </button>
                   )}
-                  {booking.status === 'APPROVED' && !booking.reviewed && (
+                  {booking.status === 'APPROVED' && resourceAvailability.available && !booking.reviewed && (
                     <button onClick={() => openReview(booking)} className="inline-flex items-center gap-2 rounded-xl bg-yellow-50 px-4 py-2 font-semibold text-yellow-700 hover:bg-yellow-100">
                       <Star className="h-4 w-4" /> Add Review
                     </button>
@@ -415,7 +472,7 @@ const StudentMyBookings = () => {
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /> Reviewed {booking.reviewRating}/5
                     </span>
                   )}
-                  {['PENDING', 'APPROVED'].includes(booking.status) && (
+                  {['PENDING', 'APPROVED'].includes(booking.status) && resourceAvailability.available && (
                     <>
                       <button onClick={() => openReschedule(booking)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 font-semibold text-emerald-700 hover:bg-emerald-100">
                         <RefreshCw className="h-4 w-4" /> Reschedule
@@ -434,7 +491,8 @@ const StudentMyBookings = () => {
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
 
         {!loading && bookings.length === 0 && (
@@ -444,18 +502,18 @@ const StudentMyBookings = () => {
 
       {rescheduleBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-2xl font-bold text-slate-900">Reschedule Booking</h2>
+          <div className="w-full max-w-lg rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-primary shadow-xl">
+            <h2 className="text-2xl font-bold text-primary">Reschedule Booking</h2>
             <div className="mt-5 grid gap-4">
-              <input type="date" value={rescheduleForm.date} onChange={(event) => setRescheduleForm(current => ({ ...current, date: event.target.value }))} className="rounded-xl border border-slate-200 px-4 py-3" />
+              <input type="date" value={rescheduleForm.date} onChange={(event) => setRescheduleForm(current => ({ ...current, date: event.target.value }))} className="rounded-xl border border-primary/20 bg-white px-4 py-3 text-primary" />
               <div className="grid grid-cols-2 gap-3">
-                <input type="time" value={rescheduleForm.startTime} onChange={(event) => setRescheduleForm(current => ({ ...current, startTime: event.target.value }))} className="rounded-xl border border-slate-200 px-4 py-3" />
-                <input type="time" value={rescheduleForm.endTime} onChange={(event) => setRescheduleForm(current => ({ ...current, endTime: event.target.value }))} className="rounded-xl border border-slate-200 px-4 py-3" />
+                <input type="time" value={rescheduleForm.startTime} onChange={(event) => setRescheduleForm(current => ({ ...current, startTime: event.target.value }))} className="rounded-xl border border-primary/20 bg-white px-4 py-3 text-primary" />
+                <input type="time" value={rescheduleForm.endTime} onChange={(event) => setRescheduleForm(current => ({ ...current, endTime: event.target.value }))} className="rounded-xl border border-primary/20 bg-white px-4 py-3 text-primary" />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setRescheduleBooking(null)} className="rounded-xl px-4 py-2 text-slate-600 hover:bg-slate-100">Close</button>
-              <button onClick={submitReschedule} className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-white hover:bg-emerald-600">Submit</button>
+              <button onClick={() => setRescheduleBooking(null)} className="rounded-xl px-4 py-2 font-semibold text-primary hover:bg-emerald-100">Close</button>
+              <button onClick={submitReschedule} className="rounded-xl bg-secondary px-4 py-2 font-semibold text-primary hover:bg-emerald-400">Submit</button>
             </div>
           </div>
         </div>
@@ -481,7 +539,10 @@ const StudentMyBookings = () => {
             </div>
 
             <div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-              {calendarDayModal.bookings.map(booking => (
+              {calendarDayModal.bookings.map(booking => {
+                const resourceAvailability = getResourceAvailability(booking);
+
+                return (
                 <article key={booking.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -495,6 +556,11 @@ const StudentMyBookings = () => {
                       {booking.status}
                     </span>
                   </div>
+                  {!resourceAvailability.available && (
+                    <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      {resourceAvailability.label}. {resourceAvailability.detail}
+                    </p>
+                  )}
 
                   <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                     <p className="inline-flex items-center gap-1">
@@ -505,14 +571,15 @@ const StudentMyBookings = () => {
                     <p className="sm:col-span-2">Purpose: {booking.purpose}</p>
                   </div>
 
-                  {booking.status === 'APPROVED' && (
-                    <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-700">
+                  {booking.status === 'APPROVED' && resourceAvailability.available && (
+                    <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-primary">
                       <QrCode className="h-4 w-4" />
                       Verification: {booking.verificationCode || 'Available'}
                     </p>
                   )}
                 </article>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
