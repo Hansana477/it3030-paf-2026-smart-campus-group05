@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/users/reset-password"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/notifications/stream").permitAll()
                         .requestMatchers(HttpMethod.GET, "/resources", "/resources/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/reviews/resource/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/resources/images").hasRole("ADMIN")
