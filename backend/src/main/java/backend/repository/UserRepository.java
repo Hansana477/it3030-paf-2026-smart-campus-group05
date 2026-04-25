@@ -15,6 +15,8 @@ public interface UserRepository extends MongoRepository<UserModel, String> {
 
     Optional<UserModel> findByEmailAndRole(String email, String role);
 
+    List<UserModel> findByRole(String role);
+
     List<UserModel> findByRoleAndApproved(String role, boolean approved);
 
     default void updateLastLogin(String id) {

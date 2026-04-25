@@ -70,17 +70,23 @@ function StudentDashboard() {
             </div>
 
             <div className="mt-8 rounded-[28px] border border-accent/20 bg-accent/5 p-6">
-              <h3 className="text-2xl font-bold text-primary">Profile-ready interface</h3>
-              <p className="mt-3 text-base leading-7 text-slate-500">
-                Use the profile icon in the header to update your personal details and change your password without leaving the dashboard.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/student-resource-view")}
-                className="mt-5 inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Make Booking
-              </button>
+              <h3 className="text-2xl font-bold text-primary">Booking Actions</h3>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => navigate("/student-resource-view")}
+                  className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Make Booking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/student-my-bookings")}
+                  className="inline-flex items-center justify-center rounded-2xl border border-primary/20 bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:border-primary hover:bg-slate-50"
+                >
+                  My Booking
+                </button>
+              </div>
             </div>
           </article>
 
