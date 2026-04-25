@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../Header/Header";
 import AdminTicketPanel from "../Tickets/AdminTicketPanel";
 
 const adminInputClasses =
@@ -76,10 +75,6 @@ function AdminDashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
-  };
-
-  const handleOwnAccountDeleted = () => {
-    handleLogout();
   };
 
   useEffect(() => {
@@ -389,15 +384,6 @@ function AdminDashboard() {
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Header
-          title="Admin Dashboard"
-          roleLabel="Admin Portal"
-          user={currentUser}
-          onUserUpdated={setCurrentUser}
-          onDeleteAccount={handleOwnAccountDeleted}
-          onLogout={handleLogout}
-        />
-
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <article className="rounded-[30px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Approval Center</p>

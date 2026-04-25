@@ -1,13 +1,10 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import {
-  ArrowRight,
   Building2,
   CalendarCheck,
   GraduationCap,
   Headphones,
   ShieldCheck,
-  Sparkles,
   Users,
   Wrench,
 } from "lucide-react";
@@ -52,31 +49,6 @@ function AboutUs() {
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-        <nav className="flex flex-col gap-4 rounded-[30px] border border-white/70 bg-white/85 px-5 py-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-7">
-          <Link to="/login" className="inline-flex items-center gap-3 text-lg font-extrabold text-primary">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-white">
-              <Sparkles size={22} aria-hidden="true" />
-            </span>
-            Smart Campus
-          </Link>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:border-accent/50"
-            >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Register
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </div>
-        </nav>
-
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <article className="overflow-hidden rounded-[30px] border border-white/70 bg-white/85 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur">
             <div className="relative min-h-[520px] overflow-hidden bg-primary px-6 py-10 text-white sm:px-10 sm:py-12">

@@ -1,25 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Header from "../Header/Header";
 import TechnicianTicketPanel from "../Tickets/TechnicianTicketPanel";
 
 function TechnicianDashboard() {
-  const navigate = useNavigate();
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
   const token = localStorage.getItem("token");
   const [currentUser, setCurrentUser] = useState(user);
   const [error, setError] = useState("");
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  const handleOwnAccountDeleted = () => {
-    handleLogout();
-  };
 
   useEffect(() => {
     const loadTechnician = async () => {
@@ -56,15 +43,6 @@ function TechnicianDashboard() {
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Header
-          title="Technician Dashboard"
-          roleLabel="Technician Portal"
-          user={currentUser}
-          onUserUpdated={setCurrentUser}
-          onDeleteAccount={handleOwnAccountDeleted}
-          onLogout={handleLogout}
-        />
-
         <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
           <article className="rounded-[30px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Technician Status</p>

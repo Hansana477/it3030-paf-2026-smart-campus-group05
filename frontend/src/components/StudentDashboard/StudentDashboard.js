@@ -1,35 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../Header/Header";
 
 function StudentDashboard() {
   const navigate = useNavigate();
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-  const [currentUser, setCurrentUser] = useState(user);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  const handleOwnAccountDeleted = () => {
-    handleLogout();
-  };
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Header
-          title="Student Dashboard"
-          roleLabel="Student Portal"
-          user={currentUser}
-          onUserUpdated={setCurrentUser}
-          onDeleteAccount={handleOwnAccountDeleted}
-          onLogout={handleLogout}
-        />
-
         <section className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
           <article className="rounded-[30px] border border-white/70 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.32em] text-accent">Welcome</p>
@@ -65,7 +44,7 @@ function StudentDashboard() {
               </div>
               <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
                 <p className="text-sm text-slate-400">Status</p>
-                <p className="mt-2 text-lg font-bold text-primary">{currentUser?.active ? "Active" : "Inactive"}</p>
+                <p className="mt-2 text-lg font-bold text-primary">{user?.active ? "Active" : "Inactive"}</p>
               </div>
             </div>
 
