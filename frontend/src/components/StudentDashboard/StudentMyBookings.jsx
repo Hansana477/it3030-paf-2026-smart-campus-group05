@@ -86,6 +86,14 @@ const StudentMyBookings = () => {
 
   const submitReschedule = async () => {
     if (!rescheduleBooking) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to reschedule this booking? Your current booking will be sent back to PENDING and must be approved again.'
+    );
+    if (!confirmed) {
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/bookings/${rescheduleBooking.id}/reschedule`, {
         method: 'PATCH',
@@ -504,6 +512,9 @@ const StudentMyBookings = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-primary shadow-xl">
             <h2 className="text-2xl font-bold text-primary">Reschedule Booking</h2>
+            <p className="mt-2 rounded-xl bg-white/70 px-4 py-3 text-sm font-semibold leading-6 text-primary/80">
+              Rescheduling sends this booking back to pending approval. Your new date and time must be approved again.
+            </p>
             <div className="mt-5 grid gap-4">
               <input type="date" value={rescheduleForm.date} onChange={(event) => setRescheduleForm(current => ({ ...current, date: event.target.value }))} className="rounded-xl border border-primary/20 bg-white px-4 py-3 text-primary" />
               <div className="grid grid-cols-2 gap-3">
