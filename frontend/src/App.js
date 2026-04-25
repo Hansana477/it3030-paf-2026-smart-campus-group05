@@ -18,6 +18,7 @@ import StudentTrackTicketsPage from "./components/Tickets/StudentTrackTicketsPag
 import AboutUs from "./components/AboutUs/AboutUs";
 import FAQ from "./components/FAQ/FAQ";
 import SiteHeader from "./components/SiteHeader/SiteHeader";
+import SiteFooter from "./components/SiteFooter/SiteFooter";
 
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
         <Route path="/faq" element={<FAQ />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      <SiteFooter />
     </BrowserRouter>
   );
 }
