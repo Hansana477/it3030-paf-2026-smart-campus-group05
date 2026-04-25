@@ -7,7 +7,6 @@ import StudentDashboard from "./components/StudentDashboard/StudentDashboard";
 import TechnicianDashboard from "./components/TechnicianDashboard/TechnicianDashboard";
 import AdminResorceManagement from "./components/AdminDashboard/AdminResourceManagement";
 import AdminBookingManagement from "./components/AdminDashboard/AdminBookingManagement";
-import AboutUs from "./components/AboutUs/AboutUs";
 
 import StudentResourceView from "./components/StudentDashboard/StudentResourceView";
 import StudentMyBookings from "./components/StudentDashboard/StudentMyBookings";
