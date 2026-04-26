@@ -114,7 +114,7 @@ public class BookingController {
         requireActiveResource(resource);
 
         populateBooking(booking, user, resource);
-        validateBooking(booking, null);
+        validateBooking(booking, null, resource);
         ensureNoConflict(booking, null);
         booking.applyDefaults();
         BookingModel savedBooking = bookingRepository.save(booking);
@@ -225,7 +225,7 @@ public class BookingController {
         booking.setQrPayload(null);
         booking.setApprovalEmailSent(null);
         booking.setApprovalEmailStatus(null);
-        validateBooking(booking, booking.getId());
+        validateBooking(booking, booking.getId(), resource);
         ensureNoConflict(booking, booking.getId());
         booking.applyDefaults();
         BookingModel savedBooking = bookingRepository.save(booking);
@@ -289,7 +289,7 @@ public class BookingController {
         return value == null ? "" : value.replace("|", "/");
     }
 
-    private void validateBooking(BookingModel booking, String currentBookingId) {
+    private void validateBooking(BookingModel booking, String currentBookingId, ResourceModel resource) {
         if (booking.getResourceId() == null || booking.getResourceId().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource is required");
         }
@@ -318,13 +318,30 @@ public class BookingController {
         if (booking.getPurpose() == null || booking.getPurpose().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Purpose is required");
         }
-        if (booking.getSeatIds() != null && booking.getSeatIds().size() > 4) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A student can book a maximum of 4 seats per time slot");
+        if (booking.getSeatIds() != null && booking.getSeatIds().size() > 4 && !isFullHallBooking(booking, resource)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select up to 4 seats, or use Full Hall to book the whole layout");
         }
         if (booking.getSeatIds() != null && booking.getSeatIds().isEmpty() && booking.getExpectedAttendees() != null
                 && booking.getExpectedAttendees() > 4) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A student can book a maximum of 4 attendees per time slot");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select up to 4 seats, or use Full Hall to book the whole layout");
         }
+    }
+
+    private boolean isFullHallBooking(BookingModel booking, ResourceModel resource) {
+        if (booking.getSeatIds() == null || resource == null || resource.getSeatingLayout() == null
+                || resource.getSeatingLayout().getSeats() == null) {
+            return false;
+        }
+
+        List<String> bookableSeatIds = resource.getSeatingLayout().getSeats().stream()
+                .filter(seat -> seat.getStatus() == null || "AVAILABLE".equals(seat.getStatus()))
+                .map(ResourceModel.Seat::getId)
+                .filter(seatId -> seatId != null && !seatId.isBlank())
+                .toList();
+
+        return bookableSeatIds.size() > 4
+                && booking.getSeatIds().size() == bookableSeatIds.size()
+                && bookableSeatIds.stream().allMatch(booking.getSeatIds()::contains);
     }
 
     private void ensureNoConflict(BookingModel candidate, String currentBookingId) {
