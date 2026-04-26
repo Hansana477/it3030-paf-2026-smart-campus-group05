@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MapPin, 
   Clock, 
@@ -50,6 +51,7 @@ const API_BASE_URL = 'http://localhost:8082';
 const RESOURCE_REFRESH_INTERVAL_MS = 5000;
 
 const StudentResourceView = () => {
+  const navigate = useNavigate();
   const [resources, setResources] = useState([]);
   const [selectedResource, setSelectedResource] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -87,7 +89,7 @@ const StudentResourceView = () => {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/resources?status=ACTIVE`);
+        const response = await fetch(`${API_BASE_URL}/resources`);
         const data = await response.json().catch(() => []);
 
         if (!response.ok) {
@@ -138,8 +140,7 @@ const StudentResourceView = () => {
                           (resource.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = selectedType === 'ALL' || resource.type === selectedType;
     const matchesAmenity = selectedAmenity === 'ALL' || (resource.amenities || []).includes(selectedAmenity);
-    const matchesStatus = resource.status === 'ACTIVE'; // Only show active resources to students
-    return matchesSearch && matchesType && matchesAmenity && matchesStatus;
+    return matchesSearch && matchesType && matchesAmenity;
   });
 
   // Pagination
@@ -229,6 +230,9 @@ const StudentResourceView = () => {
     if (!resource.seatingLayout) return 0;
     return resource.seatingLayout.seats.filter(s => s.status === 'AVAILABLE').length;
   };
+  const getBookableSeats = (resource) => {
+    return resource?.seatingLayout?.seats?.filter(seat => !seat.status || seat.status === 'AVAILABLE') || [];
+  };
 
   const getOccupancyRate = (resource) => {
     if (!resource.seatingLayout) return 0;
@@ -254,6 +258,28 @@ const StudentResourceView = () => {
   };
 
   const openBookingModal = (resource) => {
+    if (resource.status !== 'ACTIVE') {
+      showNotificationMessage('This resource is not available for booking right now', 'error');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    let user = null;
+
+    if (storedUser) {
+      try {
+        user = JSON.parse(storedUser);
+      } catch (error) {
+        user = null;
+      }
+    }
+
+    if (!token || user?.role !== 'STUDENT') {
+      navigate('/login', { state: { from: { pathname: '/resources' } } });
+      return;
+    }
+
     setBookingResource(resource);
     setBookingDate(getNextAvailableDate(resource) || todayDate);
     setSelectedSeatIds([]);
@@ -293,6 +319,19 @@ const StudentResourceView = () => {
       return `${todayWindow.startTime} - ${todayWindow.endTime}`;
     }
     return 'Closed';
+  };
+  const isResourceBookable = (resource) => resource?.status === 'ACTIVE';
+  const getResourceStatusLabel = (status) => {
+    if (!status) return 'Unavailable';
+    return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase());
+  };
+  const getResourceStatusClasses = (status) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-emerald-100 text-emerald-700';
+      case 'MAINTENANCE': return 'bg-amber-100 text-amber-700';
+      case 'OUT_OF_SERVICE': return 'bg-red-100 text-red-700';
+      default: return 'bg-slate-100 text-slate-700';
+    }
   };
   const addMinutesToTime = (time, minutes) => {
     const [hours, mins] = time.split(':').map(Number);
@@ -421,11 +460,26 @@ const StudentResourceView = () => {
         return current.filter(id => id !== seat.id);
       }
       if (current.length >= 4) {
-        showNotificationMessage('You can select maximum 4 seats for one booking', 'error');
+        showNotificationMessage('You can manually select up to 4 seats. Use Full Hall to book the whole layout.', 'error');
         return current;
       }
       return [...current, seat.id];
     });
+  };
+  const selectFullHall = () => {
+    const fullHallSeatIds = getBookableSeats(bookingResource).map(seat => seat.id);
+    if (!fullHallSeatIds.length) {
+      showNotificationMessage('No seats are available for this hall', 'error');
+      return;
+    }
+    setSelectedSlot(null);
+    setSelectedSeatIds(fullHallSeatIds);
+  };
+  const isFullHallSelection = () => {
+    const bookableSeatIds = getBookableSeats(bookingResource).map(seat => seat.id);
+    return bookableSeatIds.length > 4
+      && selectedSeatIds.length === bookableSeatIds.length
+      && bookableSeatIds.every(seatId => selectedSeatIds.includes(seatId));
   };
 
   useEffect(() => {
@@ -450,12 +504,17 @@ const StudentResourceView = () => {
   }, [bookingResource, bookingDate]);
 
   const submitBookingRequest = async () => {
+    if (!isResourceBookable(bookingResource)) {
+      showNotificationMessage('This resource is not available for booking right now', 'error');
+      return;
+    }
     if (!bookingResource || !bookingDate || !selectedSlot || !bookingPurpose.trim()) {
       showNotificationMessage('Select date, seats, time slot, and purpose', 'error');
       return;
     }
-    if (selectedSeatIds.length < 1 || selectedSeatIds.length > 4) {
-      showNotificationMessage('Select 1 to 4 seats', 'error');
+    const fullHallSelected = isFullHallSelection();
+    if (selectedSeatIds.length < 1 || (!fullHallSelected && selectedSeatIds.length > 4)) {
+      showNotificationMessage('Select 1 to 4 seats, or click Full Hall to book the whole layout.', 'error');
       return;
     }
     if (!acceptedBookingPolicy) {
@@ -507,6 +566,7 @@ const StudentResourceView = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      
       {/* Hero Header */}
       <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
         <div className="absolute inset-0 bg-black/20"></div>
@@ -514,7 +574,7 @@ const StudentResourceView = () => {
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
               <Building className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm">Smart Campus Resources</span>
+              <span className="text-sm">UniNex Resources</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               Find Your Perfect Study Space
@@ -660,6 +720,9 @@ const StudentResourceView = () => {
                 getAvailableSeatsCount={getAvailableSeatsCount}
                 getOccupancyRate={getOccupancyRate}
                 getTodayHours={getTodayHours}
+                isResourceBookable={isResourceBookable}
+                getResourceStatusLabel={getResourceStatusLabel}
+                getResourceStatusClasses={getResourceStatusClasses}
                 onBook={() => openBookingModal(resource)}
               />
             ))}
@@ -677,6 +740,9 @@ const StudentResourceView = () => {
                 getResourceTypeColor={getResourceTypeColor}
                 getAvailableSeatsCount={getAvailableSeatsCount}
                 getTodayHours={getTodayHours}
+                isResourceBookable={isResourceBookable}
+                getResourceStatusLabel={getResourceStatusLabel}
+                getResourceStatusClasses={getResourceStatusClasses}
                 onBook={() => openBookingModal(resource)}
               />
             ))}
@@ -734,7 +800,12 @@ const StudentResourceView = () => {
                 <div className={`p-2 rounded-lg ${getResourceTypeColor(selectedResource.type)}`}>
                   {getResourceTypeIcon(selectedResource.type)}
                 </div>
-                <h3 className="text-xl font-bold text-slate-800">{selectedResource.name}</h3>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800">{selectedResource.name}</h3>
+                  <span className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-bold ${getResourceStatusClasses(selectedResource.status)}`}>
+                    {getResourceStatusLabel(selectedResource.status)}
+                  </span>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -820,6 +891,11 @@ const StudentResourceView = () => {
               <div className="mb-6">
                 <h4 className="font-semibold text-slate-800 mb-2">Description</h4>
                 <p className="text-slate-600">{selectedResource.description}</p>
+                {!isResourceBookable(selectedResource) && (
+                  <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                    This resource is currently {getResourceStatusLabel(selectedResource.status).toLowerCase()} and cannot be booked.
+                  </p>
+                )}
               </div>
               
               {/* Details Grid */}
@@ -990,10 +1066,11 @@ const StudentResourceView = () => {
                   setShowDetailsModal(false);
                   openBookingModal(selectedResource);
                 }}
-                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                disabled={!isResourceBookable(selectedResource)}
+                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
                 <Calendar className="w-4 h-4" />
-                Book Now
+                {isResourceBookable(selectedResource) ? 'Book Now' : 'Not Available'}
               </button>
             </div>
           </div>
@@ -1051,8 +1128,23 @@ const StudentResourceView = () => {
                 <>
                   <div>
                     <div className="flex items-center justify-between gap-4 mb-3">
-                      <h4 className="font-semibold text-slate-800">Select 1 to 4 Seats</h4>
-                      <span className="text-sm text-slate-500">{selectedSeatIds.length}/4 selected</span>
+                      <div>
+                        <h4 className="font-semibold text-slate-800">Select Seats</h4>
+                        <p className="text-xs text-slate-500">Choose 1 to 4 seats, or book the full hall in one click.</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <span className="text-sm text-slate-500">
+                          {isFullHallSelection() ? 'Full hall selected' : `${selectedSeatIds.length}/4 selected`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={selectFullHall}
+                          className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <Users className="h-4 w-4" />
+                          Full Hall
+                        </button>
+                      </div>
                     </div>
                     <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
                       <span className="inline-flex items-center gap-1"><Armchair className="h-4 w-4 text-slate-500" /> Available</span>
@@ -1096,7 +1188,39 @@ const StudentResourceView = () => {
                     </div>
                   </div>
 
-                  {selectedSeatIds.length > 0 && (
+                  {selectedSeatIds.length > 0 && isFullHallSelection() && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="inline-flex items-center gap-2 font-semibold text-slate-800">
+                          <Users className="h-5 w-5 text-emerald-600" />
+                          Full Hall
+                        </h5>
+                        <p className="text-xs text-slate-500">{selectedSeatIds.length} seats selected</p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {getBookingSlots(bookingResource, bookingDate).map(slot => {
+                          const slotBooked = selectedSeatIds.some(seatId => isSlotBookedForSeat(seatId, slot));
+                          const past = isPastSlot(bookingDate, slot);
+                          const blocked = slotBooked || past;
+                          const selected = selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
+                          return (
+                            <button
+                              key={`full-hall-${slot.startTime}`}
+                              type="button"
+                              disabled={blocked}
+                              onClick={() => setSelectedSlot(slot)}
+                              title={past ? 'This time slot has already started' : slotBooked ? 'One or more seats are already booked for this time' : undefined}
+                              className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-100 ${getSlotStateClasses(slotBooked ? 'APPROVED' : null, selected, past)}`}
+                            >
+                              {slot.startTime} - {slot.endTime}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSeatIds.length > 0 && !isFullHallSelection() && (
                     <div className="grid gap-4 md:grid-cols-2">
                       {selectedSeatIds.map(seatId => {
                         const seat = bookingResource.seatingLayout.seats.find(item => item.id === seatId);
@@ -1182,10 +1306,13 @@ const StudentResourceView = () => {
 // Resource Card Component (Grid View)
 const ResourceCard = ({ 
   resource, isFavorite, onViewDetails, onToggleFavorite,
-  getResourceTypeIcon, getResourceTypeColor, getAvailableSeatsCount, getOccupancyRate, getTodayHours, onBook
+  getResourceTypeIcon, getResourceTypeColor, getAvailableSeatsCount, getOccupancyRate, getTodayHours,
+  isResourceBookable, getResourceStatusLabel, getResourceStatusClasses, onBook
 }) => {
+  const bookable = isResourceBookable(resource);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-200 group">
+    <div className="bg-primary rounded-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] border border-white/10 overflow-hidden hover:shadow-[0_22px_55px_rgba(15,23,42,0.24)] transition-all duration-200 group text-white">
       <div className="relative h-48 overflow-hidden">
         <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700">
           {getResourceTypeIcon(resource.type)}
@@ -1208,23 +1335,35 @@ const ResourceCard = ({
             {resource.type.replace('_', ' ')}
           </span>
         </div>
+        {!bookable && (
+          <div className="absolute bottom-3 right-3">
+            <span className={`px-2 py-1 rounded-lg text-xs font-bold ${getResourceStatusClasses(resource.status)}`}>
+              {getResourceStatusLabel(resource.status)}
+            </span>
+          </div>
+        )}
       </div>
       
       <div className="p-4">
-        <h3 className="font-bold text-slate-800 text-lg mb-1 line-clamp-1">{resource.name}</h3>
+        <h3 className="font-bold text-white text-lg mb-1 line-clamp-1">{resource.name}</h3>
         <div className="flex items-center gap-2 mb-2">
-          <MapPin className="w-3 h-3 text-slate-400" />
-          <p className="text-xs text-slate-500">{resource.location}</p>
+          <MapPin className="w-3 h-3 text-slate-300" />
+          <p className="text-xs text-slate-300">{resource.location}</p>
         </div>
-        <p className="text-sm text-slate-600 mb-3 line-clamp-2">{resource.description}</p>
+        <p className="text-sm text-slate-300 mb-3 line-clamp-2">{resource.description}</p>
+        {!bookable && (
+          <p className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-800">
+            Not available for booking right now.
+          </p>
+        )}
         
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span className="text-sm font-medium text-slate-700">{resource.rating}</span>
+            <span className="text-sm font-medium text-slate-200">{resource.rating}</span>
             <span className="text-xs text-slate-400">({resource.reviews})</span>
           </div>
-          <div className="flex items-center gap-1 text-xs text-slate-500">
+          <div className="flex items-center gap-1 text-xs text-slate-300">
             <Clock className="w-3 h-3" />
             <span>{getTodayHours(resource.availabilityWindows)}</span>
           </div>
@@ -1232,11 +1371,11 @@ const ResourceCard = ({
         
         {resource.seatingLayout && (
           <div className="mb-3">
-            <div className="flex justify-between text-xs text-slate-600 mb-1">
+            <div className="flex justify-between text-xs text-slate-300 mb-1">
               <span>Available Seats</span>
               <span>{getAvailableSeatsCount(resource)} / {resource.seatingLayout.seats.length}</span>
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-1.5">
+            <div className="w-full bg-white/10 rounded-full h-1.5">
               <div 
                 className="bg-emerald-500 h-1.5 rounded-full transition-all"
                 style={{ width: `${(getAvailableSeatsCount(resource) / resource.seatingLayout.seats.length) * 100}%` }}
@@ -1245,17 +1384,21 @@ const ResourceCard = ({
           </div>
         )}
         
-        <div className="flex gap-2 pt-3 border-t border-slate-100">
+        <div className="flex gap-2 pt-3 border-t border-white/10">
           <button
             onClick={onViewDetails}
-            className="flex-1 px-3 py-2 text-sm text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center justify-center gap-1"
+            className="flex-1 px-3 py-2 text-sm text-white bg-white/10 hover:bg-white/15 rounded-lg transition-colors flex items-center justify-center gap-1"
           >
             <Eye className="w-4 h-4" />
             View Details
           </button>
-          <button onClick={onBook} className="px-3 py-2 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors flex items-center justify-center gap-1">
+          <button
+            onClick={onBook}
+            disabled={!bookable}
+            className="px-3 py-2 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-300"
+          >
             <Calendar className="w-4 h-4" />
-            Book
+            {bookable ? 'Book' : 'Unavailable'}
           </button>
         </div>
       </div>
@@ -1266,10 +1409,13 @@ const ResourceCard = ({
 // Resource List Item Component (List View)
 const ResourceListItem = ({ 
   resource, isFavorite, onViewDetails, onToggleFavorite,
-  getResourceTypeIcon, getResourceTypeColor, getAvailableSeatsCount, getTodayHours, onBook
+  getResourceTypeIcon, getResourceTypeColor, getAvailableSeatsCount, getTodayHours,
+  isResourceBookable, getResourceStatusLabel, getResourceStatusClasses, onBook
 }) => {
+  const bookable = isResourceBookable(resource);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-all duration-200">
+    <div className="bg-primary rounded-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] border border-white/10 p-4 hover:shadow-[0_22px_55px_rgba(15,23,42,0.24)] transition-all duration-200 text-white">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative md:w-48 h-32 rounded-lg overflow-hidden flex-shrink-0">
           <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700">
@@ -1283,18 +1429,23 @@ const ResourceListItem = ({
         <div className="flex-1">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">{resource.name}</h3>
+              <h3 className="font-bold text-white text-lg">{resource.name}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getResourceTypeColor(resource.type)}`}>
                   {resource.type.replace('_', ' ')}
                 </span>
+                {!bookable && (
+                  <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${getResourceStatusClasses(resource.status)}`}>
+                    {getResourceStatusLabel(resource.status)}
+                  </span>
+                )}
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                  <span className="text-sm text-slate-600">{resource.rating}</span>
+                  <span className="text-sm text-slate-300">{resource.rating}</span>
                 </div>
               </div>
             </div>
-            <button onClick={onToggleFavorite} className="p-1.5 hover:bg-slate-100 rounded-lg">
+            <button onClick={onToggleFavorite} className="p-1.5 hover:bg-white/10 rounded-lg">
               {isFavorite ? (
                 <Heart className="w-5 h-5 text-red-500 fill-red-500" />
               ) : (
@@ -1303,9 +1454,14 @@ const ResourceListItem = ({
             </button>
           </div>
           
-          <p className="text-sm text-slate-600 mt-2 line-clamp-2">{resource.description}</p>
+          <p className="text-sm text-slate-300 mt-2 line-clamp-2">{resource.description}</p>
+          {!bookable && (
+            <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-800">
+              Not available for booking right now.
+            </p>
+          )}
           
-          <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-500">
+          <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-300">
             <div className="flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               <span>{resource.location}</span>
@@ -1328,17 +1484,21 @@ const ResourceListItem = ({
             )}
           </div>
           
-          <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+          <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
             <button
               onClick={onViewDetails}
-              className="px-3 py-1.5 text-sm text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 text-sm text-white bg-white/10 hover:bg-white/15 rounded-lg transition-colors flex items-center gap-1"
             >
               <Eye className="w-4 h-4" />
               View Details
             </button>
-            <button onClick={onBook} className="px-3 py-1.5 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors flex items-center gap-1">
+            <button
+              onClick={onBook}
+              disabled={!bookable}
+              className="px-3 py-1.5 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors flex items-center gap-1 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-300"
+            >
               <Calendar className="w-4 h-4" />
-              Book Now
+              {bookable ? 'Book Now' : 'Unavailable'}
             </button>
           </div>
         </div>
@@ -1348,3 +1508,4 @@ const ResourceListItem = ({
 };
 
 export default StudentResourceView;
+

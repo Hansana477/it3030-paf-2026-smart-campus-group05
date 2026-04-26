@@ -7,7 +7,9 @@ import backend.model.UserModel;
 import backend.repository.BookingRepository;
 import backend.repository.ResourceRepository;
 import backend.repository.ReviewRepository;
+import backend.repository.UserRepository;
 import backend.service.EmailNotificationService;
+import backend.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -47,17 +49,23 @@ public class BookingController {
     private final ResourceRepository resourceRepository;
     private final ReviewRepository reviewRepository;
     private final EmailNotificationService emailNotificationService;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public BookingController(
             BookingRepository bookingRepository,
             ResourceRepository resourceRepository,
             ReviewRepository reviewRepository,
-            EmailNotificationService emailNotificationService
+            EmailNotificationService emailNotificationService,
+            NotificationService notificationService,
+            UserRepository userRepository
     ) {
         this.bookingRepository = bookingRepository;
         this.resourceRepository = resourceRepository;
         this.reviewRepository = reviewRepository;
         this.emailNotificationService = emailNotificationService;
+        this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping
@@ -103,12 +111,15 @@ public class BookingController {
         UserModel user = currentUser(authentication);
         ResourceModel resource = resourceRepository.findById(booking.getResourceId())
                 .orElseThrow(() -> new UserNotFoundException("Could not find resource with id " + booking.getResourceId()));
+        requireActiveResource(resource);
 
         populateBooking(booking, user, resource);
-        validateBooking(booking, null);
+        validateBooking(booking, null, resource);
         ensureNoConflict(booking, null);
         booking.applyDefaults();
-        return bookingRepository.save(booking);
+        BookingModel savedBooking = bookingRepository.save(booking);
+        notificationService.notifyBookingCreated(savedBooking, user);
+        return savedBooking;
     }
 
     @PatchMapping("/{id}/approve")
@@ -125,6 +136,7 @@ public class BookingController {
         applyVerificationDetails(booking);
         booking.applyDefaults();
         BookingModel savedBooking = bookingRepository.save(booking);
+        notificationService.notifyBookingApproved(savedBooking, getRequester(savedBooking));
         return sendApprovalEmailAndRecord(savedBooking);
     }
 
@@ -157,7 +169,9 @@ public class BookingController {
         booking.setApproverId(admin.getId());
         booking.setApproverName(admin.getFullName());
         booking.applyDefaults();
-        return bookingRepository.save(booking);
+        BookingModel savedBooking = bookingRepository.save(booking);
+        notificationService.notifyBookingRejected(savedBooking, getRequester(savedBooking), reason);
+        return savedBooking;
     }
 
     @PatchMapping("/{id}/cancel")
@@ -172,7 +186,9 @@ public class BookingController {
         booking.setStatus("CANCELLED");
         booking.setCancellationReason(body == null ? null : body.get("reason"));
         booking.applyDefaults();
-        return bookingRepository.save(booking);
+        BookingModel savedBooking = bookingRepository.save(booking);
+        notificationService.notifyBookingCancelled(savedBooking, getRequester(savedBooking), user);
+        return savedBooking;
     }
 
     @PatchMapping("/{id}/reschedule")
@@ -183,6 +199,12 @@ public class BookingController {
         if ("CANCELLED".equals(booking.getStatus()) || "REJECTED".equals(booking.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cancelled or rejected bookings cannot be rescheduled");
         }
+
+        String oldDate = booking.getDate();
+        String oldTime = booking.getStartTime();
+        ResourceModel resource = resourceRepository.findById(booking.getResourceId())
+                .orElseThrow(() -> new UserNotFoundException("Could not find resource with id " + booking.getResourceId()));
+        requireActiveResource(resource);
 
         booking.setDate(request.getDate());
         booking.setStartTime(request.getStartTime());
@@ -203,10 +225,12 @@ public class BookingController {
         booking.setQrPayload(null);
         booking.setApprovalEmailSent(null);
         booking.setApprovalEmailStatus(null);
-        validateBooking(booking, booking.getId());
+        validateBooking(booking, booking.getId(), resource);
         ensureNoConflict(booking, booking.getId());
         booking.applyDefaults();
-        return bookingRepository.save(booking);
+        BookingModel savedBooking = bookingRepository.save(booking);
+        notificationService.notifyBookingRescheduled(savedBooking, getRequester(savedBooking), oldDate, oldTime, user);
+        return savedBooking;
     }
 
     private BookingModel sendApprovalEmailAndRecord(BookingModel booking) {
@@ -235,13 +259,22 @@ public class BookingController {
         }
     }
 
+    private void requireActiveResource(ResourceModel resource) {
+        if (!"ACTIVE".equals(resource.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "This resource is currently not available for booking"
+            );
+        }
+    }
+
     private void applyVerificationDetails(BookingModel booking) {
         if (booking.getVerificationCode() == null || booking.getVerificationCode().isBlank()) {
             booking.setVerificationCode("BK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
 
         booking.setQrPayload(String.join("|",
-                "SMART_CAMPUS_BOOKING",
+                "UNINEX_BOOKING",
                 "bookingId=" + safeQrValue(booking.getId()),
                 "code=" + safeQrValue(booking.getVerificationCode()),
                 "resource=" + safeQrValue(booking.getResourceName()),
@@ -256,7 +289,7 @@ public class BookingController {
         return value == null ? "" : value.replace("|", "/");
     }
 
-    private void validateBooking(BookingModel booking, String currentBookingId) {
+    private void validateBooking(BookingModel booking, String currentBookingId, ResourceModel resource) {
         if (booking.getResourceId() == null || booking.getResourceId().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource is required");
         }
@@ -285,13 +318,30 @@ public class BookingController {
         if (booking.getPurpose() == null || booking.getPurpose().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Purpose is required");
         }
-        if (booking.getSeatIds() != null && booking.getSeatIds().size() > 4) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A student can book a maximum of 4 seats per time slot");
+        if (booking.getSeatIds() != null && booking.getSeatIds().size() > 4 && !isFullHallBooking(booking, resource)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select up to 4 seats, or use Full Hall to book the whole layout");
         }
         if (booking.getSeatIds() != null && booking.getSeatIds().isEmpty() && booking.getExpectedAttendees() != null
                 && booking.getExpectedAttendees() > 4) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A student can book a maximum of 4 attendees per time slot");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select up to 4 seats, or use Full Hall to book the whole layout");
         }
+    }
+
+    private boolean isFullHallBooking(BookingModel booking, ResourceModel resource) {
+        if (booking.getSeatIds() == null || resource == null || resource.getSeatingLayout() == null
+                || resource.getSeatingLayout().getSeats() == null) {
+            return false;
+        }
+
+        List<String> bookableSeatIds = resource.getSeatingLayout().getSeats().stream()
+                .filter(seat -> seat.getStatus() == null || "AVAILABLE".equals(seat.getStatus()))
+                .map(ResourceModel.Seat::getId)
+                .filter(seatId -> seatId != null && !seatId.isBlank())
+                .toList();
+
+        return bookableSeatIds.size() > 4
+                && booking.getSeatIds().size() == bookableSeatIds.size()
+                && bookableSeatIds.stream().allMatch(booking.getSeatIds()::contains);
     }
 
     private void ensureNoConflict(BookingModel candidate, String currentBookingId) {
@@ -407,4 +457,10 @@ public class BookingController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid booking date or time for cancellation");
         }
     }
+
+    private UserModel getRequester(BookingModel booking) {
+        return userRepository.findById(booking.getRequesterId())
+                .orElseThrow(() -> new UserNotFoundException("Requester not found"));
+    }
 }
+

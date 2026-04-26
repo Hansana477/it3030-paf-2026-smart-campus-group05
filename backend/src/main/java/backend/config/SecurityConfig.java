@@ -45,6 +45,7 @@ public class SecurityConfig {
                                 "/users/reset-password"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/notifications/stream").permitAll()
                         .requestMatchers(HttpMethod.GET, "/resources", "/resources/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/reviews/resource/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/resources/images").hasRole("ADMIN")
@@ -56,6 +57,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/bookings/*/approve").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/bookings/*/reject").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/bookings/*/send-approval-email").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/tickets").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.GET, "/tickets/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/tickets/*/comments").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/tickets/*/comments/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/tickets/*/comments/*").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/tickets/*/assign").hasAnyRole("ADMIN", "TECHNICIAN")
+                        .requestMatchers(HttpMethod.PATCH, "/tickets/*/status").hasAnyRole("ADMIN", "TECHNICIAN")
+                        .requestMatchers(HttpMethod.PATCH, "/tickets/*/confirm-resolution").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.PATCH, "/tickets/*/reopen").hasAnyRole("STUDENT", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

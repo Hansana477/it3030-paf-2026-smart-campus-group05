@@ -2,8 +2,11 @@ package backend.controller;
 
 import backend.exception.UserNotFoundException;
 import backend.model.ResourceModel;
+import backend.model.UserModel;
 import backend.repository.ResourceRepository;
+import backend.service.NotificationService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,9 +34,11 @@ import java.util.Map;
 public class ResourceController {
 
     private final ResourceRepository resourceRepository;
+    private final NotificationService notificationService;
 
-    public ResourceController(ResourceRepository resourceRepository) {
+    public ResourceController(ResourceRepository resourceRepository, NotificationService notificationService) {
         this.resourceRepository = resourceRepository;
+        this.notificationService = notificationService;
     }
 
     @GetMapping
@@ -53,16 +58,18 @@ public class ResourceController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ResourceModel createResource(@RequestBody ResourceModel resource) {
+    public ResourceModel createResource(@RequestBody ResourceModel resource, Authentication authentication) {
         normalizeResource(resource);
         validateResource(resource);
         resource.setId(null);
         resource.applyDefaults();
-        return resourceRepository.save(resource);
+        ResourceModel savedResource = resourceRepository.save(resource);
+        notificationService.notifyResourceCreated(savedResource, getAuthenticatedUser(authentication));
+        return savedResource;
     }
 
     @PutMapping("/{id}")
-    public ResourceModel updateResource(@PathVariable String id, @RequestBody ResourceModel updatedResource) {
+    public ResourceModel updateResource(@PathVariable String id, @RequestBody ResourceModel updatedResource, Authentication authentication) {
         if (!resourceRepository.existsById(id)) {
             throw new UserNotFoundException("Could not find resource with id " + id);
         }
@@ -71,16 +78,27 @@ public class ResourceController {
         validateResource(updatedResource);
         updatedResource.setId(id);
         updatedResource.applyDefaults();
-        return resourceRepository.save(updatedResource);
+        ResourceModel savedResource = resourceRepository.save(updatedResource);
+        notificationService.notifyResourceUpdated(savedResource, getAuthenticatedUser(authentication));
+        return savedResource;
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, String> deleteResource(@PathVariable String id) {
+    public Map<String, String> deleteResource(@PathVariable String id, Authentication authentication) {
         ResourceModel resource = resourceRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("Could not find resource with id " + id));
 
         resourceRepository.delete(resource);
+        notificationService.notifyResourceDeleted(resource, getAuthenticatedUser(authentication));
         return Map.of("message", "Resource deleted successfully");
+    }
+
+    private UserModel getAuthenticatedUser(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserModel user)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+
+        return user;
     }
 
     private void normalizeResource(ResourceModel resource) {

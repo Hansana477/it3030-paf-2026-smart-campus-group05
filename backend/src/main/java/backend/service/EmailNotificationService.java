@@ -24,7 +24,7 @@ public class EmailNotificationService {
     public EmailNotificationService(
             JavaMailSender mailSender,
             @Value("${app.mail.from}") String mailFrom,
-            @Value("${app.mail.from-name:Smart Campus Team}") String mailFromName,
+            @Value("${app.mail.from-name:UniNex Team}") String mailFromName,
             @Value("${spring.mail.host:}") String mailHost
     ) {
         this.mailSender = mailSender;
@@ -38,18 +38,18 @@ public class EmailNotificationService {
             return;
         }
 
-        String subject = "Smart Campus registration successful";
+        String subject = "UniNex registration successful";
         String approvalLine = user.isApproved()
                 ? "Your account is active and ready to use."
                 : "Your account is waiting for admin approval before full access is granted.";
 
         String body = String.format(
                 "Hello %s,%n%n"
-                        + "Your Smart Campus account has been created successfully.%n"
+                        + "Your UniNex account has been created successfully.%n"
                         + "Role: %s%n"
                         + "%s%n%n"
                         + "You can now sign in using your registered email address.%n%n"
-                        + "Smart Campus Team",
+                        + "UniNex Team",
                 safeName(user),
                 user.getRole(),
                 approvalLine
@@ -67,11 +67,11 @@ public class EmailNotificationService {
                 "Hello %s,%n%n"
                         + "Your technician account has been approved by the admin.%n"
                         + "You can now sign in and access the technician dashboard.%n%n"
-                        + "Smart Campus Team",
+                        + "UniNex Team",
                 safeName(user)
         );
 
-        sendEmail(user.getEmail(), "Smart Campus technician approval", body);
+        sendEmail(user.getEmail(), "UniNex technician approval", body);
     }
 
     public void sendPasswordResetEmail(UserModel user, String resetCode) {
@@ -81,16 +81,39 @@ public class EmailNotificationService {
 
         String body = String.format(
                 "Hello %s,%n%n"
-                        + "We received a password reset request for your Smart Campus account.%n"
+                        + "We received a password reset request for your UniNex account.%n"
                         + "Your reset code is: %s%n"
                         + "This code will expire in 15 minutes.%n%n"
                         + "If you did not request this, you can ignore this email.%n%n"
-                        + "Smart Campus Team",
+                        + "UniNex Team",
                 safeName(user),
                 resetCode
         );
 
-        sendEmail(user.getEmail(), "Smart Campus password reset code", body);
+        sendEmail(user.getEmail(), "UniNex password reset code", body);
+    }
+
+    public void sendNotificationEmail(UserModel user, String title, String message, String type) {
+        if (user == null || !StringUtils.hasText(user.getEmail()) || !StringUtils.hasText(title) || !StringUtils.hasText(message)) {
+            return;
+        }
+
+        String typeLabel = formatNotificationType(type);
+        String body = String.format(
+                "Hello %s,%n%n"
+                        + "You have a new UniNex notification.%n%n"
+                        + "Type: %s%n"
+                        + "Title: %s%n"
+                        + "Details: %s%n%n"
+                        + "Please sign in to UniNex to view the latest updates.%n%n"
+                        + "UniNex Team",
+                safeName(user),
+                typeLabel,
+                title,
+                message
+        );
+
+        sendEmail(user.getEmail(), "UniNex notification: " + title, body);
     }
 
     public boolean sendLoginOtpEmail(UserModel user, String otpCode) {
@@ -100,16 +123,15 @@ public class EmailNotificationService {
 
         String body = String.format(
                 "Hello %s,%n%n"
-                        + "Use the following login verification code to complete your Smart Campus sign-in:%n"
-                        + "%s%n%n"
+                        + "We received a login request for your UniNex account.%n"
+                        + "Your login verification code is: %s%n"
                         + "This code will expire in 10 minutes.%n%n"
-                        + "If you did not try to sign in, you can ignore this email.%n%n"
-                        + "Smart Campus Team",
+                        + "UniNex Team",
                 safeName(user),
                 otpCode
         );
 
-        return sendEmail(user.getEmail(), "Smart Campus login verification code", body);
+        return sendEmail(user.getEmail(), "UniNex login verification code", body);
     }
 
     public boolean sendBookingApprovedEmail(BookingModel booking) {
@@ -132,7 +154,7 @@ public class EmailNotificationService {
         String body = String.format(
                 "<!doctype html>"
                         + "<html><body style=\"margin:0;padding:0;background:#eaf1f8;font-family:Arial,Helvetica,sans-serif;color:#0f172a;\">"
-                        + "<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;\">Your Smart Campus booking is approved. Use the QR or verification code at check-in.</div>"
+                        + "<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;\">Your UniNex booking is approved. Use the QR or verification code at check-in.</div>"
                         + "<table role=\"presentation\" width=\"100%%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#eaf1f8;padding:38px 12px;\">"
                         + "<tr><td align=\"center\">"
                         + "<table role=\"presentation\" width=\"100%%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:680px;background:#ffffff;border-radius:28px;overflow:hidden;border:1px solid #dbe7f3;box-shadow:0 26px 70px rgba(15,23,42,0.18);\">"
@@ -141,7 +163,7 @@ public class EmailNotificationService {
                         + "<tr><td style=\"padding:28px 32px 20px;\">"
                         + "<table role=\"presentation\" width=\"100%%\" cellspacing=\"0\" cellpadding=\"0\">"
                         + "<tr>"
-                        + "<td style=\"font-size:12px;font-weight:800;letter-spacing:3.5px;text-transform:uppercase;color:#5eead4;\">Smart Campus</td>"
+                        + "<td style=\"font-size:12px;font-weight:800;letter-spacing:3.5px;text-transform:uppercase;color:#5eead4;\">UniNex</td>"
                         + "<td align=\"right\"><span style=\"display:inline-block;background:#dcfce7;color:#047857;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.6px;\">APPROVED</span></td>"
                         + "</tr></table>"
                         + "<table role=\"presentation\" width=\"100%%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-top:26px;\">"
@@ -190,7 +212,7 @@ public class EmailNotificationService {
                         + "</td></tr>"
                         + "<tr><td style=\"background:#f8fafc;padding:24px 34px;color:#64748b;font-size:13px;line-height:1.7;border-top:1px solid #e2e8f0;\">"
                         + "<span style=\"font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;\">Thank you</span><br/>"
-                        + "<strong style=\"color:#0f172a;font-size:15px;\">Smart Campus Team</strong>"
+                        + "<strong style=\"color:#0f172a;font-size:15px;\">UniNex Team</strong>"
                         + "</td></tr>"
                         + "</table>"
                         + "</td></tr></table>"
@@ -205,7 +227,7 @@ public class EmailNotificationService {
                 qrUrl
         );
 
-        return sendEmail(booking.getRequesterEmail(), "Your Smart Campus booking ticket is ready", body, true);
+        return sendEmail(booking.getRequesterEmail(), "Your UniNex booking ticket is ready", body, true);
     }
 
     private boolean sendEmail(String to, String subject, String body) {
@@ -238,6 +260,20 @@ public class EmailNotificationService {
         return StringUtils.hasText(user.getFullName()) ? user.getFullName() : "User";
     }
 
+    private String formatNotificationType(String type) {
+        if (!StringUtils.hasText(type)) {
+            return "General update";
+        }
+
+        return switch (type) {
+            case "PASSWORD_CHANGED" -> "Password change";
+            case "ACCOUNT_DETAILS_UPDATED" -> "Account details update";
+            case "TECHNICIAN_APPROVED" -> "Technician approval";
+            case "TECHNICIAN_PENDING" -> "Pending technician approval";
+            default -> "General update";
+        };
+    }
+
     private String urlEncode(String value) {
         return java.net.URLEncoder.encode(value == null ? "" : value, java.nio.charset.StandardCharsets.UTF_8);
     }
@@ -265,3 +301,4 @@ public class EmailNotificationService {
                 .replace("'", "&#39;");
     }
 }
+
