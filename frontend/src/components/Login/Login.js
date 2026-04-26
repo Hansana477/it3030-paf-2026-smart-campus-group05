@@ -224,9 +224,9 @@ function Login() {
         window.google.accounts.id.renderButton(buttonContainer, {
           theme: "outline",
           size: "large",
-          shape: "pill",
+          shape: "rectangular",
           text: "signin_with",
-          width: 360,
+          width: 400,
         });
       })
       .catch(() => {
@@ -640,7 +640,7 @@ function Login() {
               </div>
 
               <div className="space-y-4">
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="w-full">
                   <div id="google-signin-button" className="flex justify-center [&>div]:!w-full [&_iframe]:!w-full" />
                 </div>
                 {isGoogleSubmitting ? (
