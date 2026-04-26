@@ -230,6 +230,9 @@ const StudentResourceView = () => {
     if (!resource.seatingLayout) return 0;
     return resource.seatingLayout.seats.filter(s => s.status === 'AVAILABLE').length;
   };
+  const getBookableSeats = (resource) => {
+    return resource?.seatingLayout?.seats?.filter(seat => !seat.status || seat.status === 'AVAILABLE') || [];
+  };
 
   const getOccupancyRate = (resource) => {
     if (!resource.seatingLayout) return 0;
@@ -457,11 +460,26 @@ const StudentResourceView = () => {
         return current.filter(id => id !== seat.id);
       }
       if (current.length >= 4) {
-        showNotificationMessage('You can select maximum 4 seats for one booking', 'error');
+        showNotificationMessage('You can manually select up to 4 seats. Use Full Hall to book the whole layout.', 'error');
         return current;
       }
       return [...current, seat.id];
     });
+  };
+  const selectFullHall = () => {
+    const fullHallSeatIds = getBookableSeats(bookingResource).map(seat => seat.id);
+    if (!fullHallSeatIds.length) {
+      showNotificationMessage('No seats are available for this hall', 'error');
+      return;
+    }
+    setSelectedSlot(null);
+    setSelectedSeatIds(fullHallSeatIds);
+  };
+  const isFullHallSelection = () => {
+    const bookableSeatIds = getBookableSeats(bookingResource).map(seat => seat.id);
+    return bookableSeatIds.length > 4
+      && selectedSeatIds.length === bookableSeatIds.length
+      && bookableSeatIds.every(seatId => selectedSeatIds.includes(seatId));
   };
 
   useEffect(() => {
@@ -494,8 +512,9 @@ const StudentResourceView = () => {
       showNotificationMessage('Select date, seats, time slot, and purpose', 'error');
       return;
     }
-    if (selectedSeatIds.length < 1 || selectedSeatIds.length > 4) {
-      showNotificationMessage('Select 1 to 4 seats', 'error');
+    const fullHallSelected = isFullHallSelection();
+    if (selectedSeatIds.length < 1 || (!fullHallSelected && selectedSeatIds.length > 4)) {
+      showNotificationMessage('Select 1 to 4 seats, or click Full Hall to book the whole layout.', 'error');
       return;
     }
     if (!acceptedBookingPolicy) {
@@ -1109,8 +1128,23 @@ const StudentResourceView = () => {
                 <>
                   <div>
                     <div className="flex items-center justify-between gap-4 mb-3">
-                      <h4 className="font-semibold text-slate-800">Select 1 to 4 Seats</h4>
-                      <span className="text-sm text-slate-500">{selectedSeatIds.length}/4 selected</span>
+                      <div>
+                        <h4 className="font-semibold text-slate-800">Select Seats</h4>
+                        <p className="text-xs text-slate-500">Choose 1 to 4 seats, or book the full hall in one click.</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <span className="text-sm text-slate-500">
+                          {isFullHallSelection() ? 'Full hall selected' : `${selectedSeatIds.length}/4 selected`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={selectFullHall}
+                          className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <Users className="h-4 w-4" />
+                          Full Hall
+                        </button>
+                      </div>
                     </div>
                     <div className="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
                       <span className="inline-flex items-center gap-1"><Armchair className="h-4 w-4 text-slate-500" /> Available</span>
@@ -1154,7 +1188,39 @@ const StudentResourceView = () => {
                     </div>
                   </div>
 
-                  {selectedSeatIds.length > 0 && (
+                  {selectedSeatIds.length > 0 && isFullHallSelection() && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="inline-flex items-center gap-2 font-semibold text-slate-800">
+                          <Users className="h-5 w-5 text-emerald-600" />
+                          Full Hall
+                        </h5>
+                        <p className="text-xs text-slate-500">{selectedSeatIds.length} seats selected</p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {getBookingSlots(bookingResource, bookingDate).map(slot => {
+                          const slotBooked = selectedSeatIds.some(seatId => isSlotBookedForSeat(seatId, slot));
+                          const past = isPastSlot(bookingDate, slot);
+                          const blocked = slotBooked || past;
+                          const selected = selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
+                          return (
+                            <button
+                              key={`full-hall-${slot.startTime}`}
+                              type="button"
+                              disabled={blocked}
+                              onClick={() => setSelectedSlot(slot)}
+                              title={past ? 'This time slot has already started' : slotBooked ? 'One or more seats are already booked for this time' : undefined}
+                              className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-100 ${getSlotStateClasses(slotBooked ? 'APPROVED' : null, selected, past)}`}
+                            >
+                              {slot.startTime} - {slot.endTime}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSeatIds.length > 0 && !isFullHallSelection() && (
                     <div className="grid gap-4 md:grid-cols-2">
                       {selectedSeatIds.map(seatId => {
                         const seat = bookingResource.seatingLayout.seats.find(item => item.id === seatId);
